@@ -10,9 +10,9 @@
 // press, entirely covered by the engine's default input pass (src/input.ts)
 // — unlike continuous demos, this entry needs no frame hook.
 
-import { Show, Text, View, type NodeMirror } from "psp-ui/components";
-import { animate } from "psp-ui/animation";
-import { createEffect, createSignal } from "psp-ui/reactivity";
+import { Show, Text, View, type NodeMirror } from "@pocketjs/components";
+import { animate } from "@pocketjs/animation";
+import { createEffect, createSignal } from "@pocketjs/reactivity";
 
 type ThemeName = "indigo" | "emerald" | "amber" | "rose";
 

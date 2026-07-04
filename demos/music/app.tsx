@@ -11,10 +11,10 @@
 // Design notes: every class a FULL literal (per-track cover accent baked per
 // entry); text single-line.
 
-import { Text, View } from "psp-ui/components";
-import { useButtonPress, useFrame } from "psp-ui/hooks";
-import { createSignal } from "psp-ui/reactivity";
-import { BTN } from "psp-ui/input";
+import { Text, View } from "@pocketjs/components";
+import { onButtonPress, onFrame } from "@pocketjs/lifecycle";
+import { createSignal } from "@pocketjs/reactivity";
+import { BTN } from "@pocketjs/input";
 
 interface Track {
   title: string;
@@ -73,9 +73,9 @@ export default function Music() {
     setPosition(0);
   };
 
-  useButtonPress(BTN.LTRIGGER, prevTrack);
-  useButtonPress(BTN.RTRIGGER, nextTrack);
-  useFrame(() => {
+  onButtonPress(BTN.LTRIGGER, prevTrack);
+  onButtonPress(BTN.RTRIGGER, nextTrack);
+  onFrame(() => {
     if (!playing()) return;
     setBarsFrame(barsFrame() + 1);
     const p = position() + 1;

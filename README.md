@@ -22,8 +22,8 @@ and everything is packed into `dist/<app>.dcpak`. Pass 2 bundles with Bun
 (iife, unminified) from the cached transforms.
 
 ```tsx
-import { Text, View } from "psp-ui/components";
-import { createSignal } from "psp-ui/reactivity";
+import { Text, View } from "@pocketjs/components";
+import { createSignal } from "@pocketjs/reactivity";
 
 const [count, setCount] = createSignal(0);
 
@@ -42,7 +42,7 @@ handles host detection, the generated style table, dcpak image uploads and the
 host frame callback:
 
 ```tsx
-import { mount } from "psp-ui";
+import { mount } from "@pocketjs";
 import App from "./app.tsx";
 
 mount(() => <App />);
@@ -54,14 +54,14 @@ dynamic styling is ternaries of full literals, `style={{...}}`, or `animate()`.
 `classList`, `hover:` and template-interpolated classes are compile errors.
 `rounded-full` requires `w-N h-N` in the same literal.
 
-`psp-ui/components` also exposes small app-shell primitives used by
+`@pocketjs/components` also exposes small app-shell primitives used by
 `demos/launcher`: `Screen`, `Focusable`, `FocusScope`, `ActionHandler`,
 `FocusGrid`, `Portal`, `Modal`, and `ActionBar`. `FocusGrid` gives a subtree
 explicit row/column d-pad traversal today; a virtualized grid can sit behind the
 same focus contract later. `Portal` mounts into the runtime overlay root, so
 modal/action-bar UI never participates in the active screen's flex layout.
 `Modal` owns a focus scope and blocks background button handlers while leaving
-frame animation hooks running; route switching is still ordinary app state, not
+frame animation lifecycle callbacks running; route switching is still ordinary app state, not
 a required router package.
 
 ## Commands

@@ -1,6 +1,6 @@
 // @title psp-ui: Demo Launcher
 
-import { mount } from "psp-ui";
+import { mount } from "@pocketjs";
 import Launcher from "./app.tsx";
 
 mount(() => <Launcher />);

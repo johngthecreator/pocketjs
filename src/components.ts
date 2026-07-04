@@ -3,7 +3,7 @@
 import type { JSX as SolidJSX } from "solid-js";
 import { createEffect, onCleanup, onMount, splitProps } from "solid-js";
 import { ENUMS, SCREEN_H, SCREEN_W } from "../spec/spec.ts";
-import { pushButtonHandlerBlock, useButtonPress, type ButtonPressOptions } from "./frame.ts";
+import { pushButtonHandlerBlock, onButtonPress, type ButtonPressOptions } from "./frame.ts";
 import { pushFocusGrid, pushFocusScope, type FocusGridOptions, type FocusScopeOptions } from "./input.ts";
 import { getOverlayRoot } from "./overlay.ts";
 import { View, type ViewProps } from "./primitives.ts";
@@ -103,7 +103,7 @@ export interface ActionHandlerProps extends ButtonPressOptions {
 }
 
 export function ActionHandler(props: ActionHandlerProps): SolidJSX.Element {
-  useButtonPress(props.button, props.onPress, {
+  onButtonPress(props.button, props.onPress, {
     allowWhenBlocked: props.allowWhenBlocked,
     active: props.active,
   });

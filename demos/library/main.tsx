@@ -1,5 +1,5 @@
 // @title psp-ui: Game Library
 import Library from "./app.tsx";
-import { mount } from "psp-ui";
+import { mount } from "@pocketjs";
 
 mount(() => <Library />);

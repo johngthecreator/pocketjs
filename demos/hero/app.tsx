@@ -2,10 +2,10 @@
 // Uses all three public primitives, class literals, a dynamic style object,
 // focus + onPress, and a signal in text — the exact surface phase v1 supports.
 
-import { Image, Show, Text, View, type NodeMirror } from "psp-ui/components";
-import { animate } from "psp-ui/animation";
-import { useSpriteAnimation } from "psp-ui/hooks";
-import { createSignal, onMount } from "psp-ui/reactivity";
+import { Image, Show, Text, View, type NodeMirror } from "@pocketjs/components";
+import { animate } from "@pocketjs/animation";
+import { createSpriteAnimation } from "@pocketjs/lifecycle";
+import { createSignal, onMount } from "@pocketjs/reactivity";
 
 const SPINNER_FRAME_STEP = 3;
 const SPINNER_FRAMES = [
@@ -30,7 +30,7 @@ function Stat(props: { label: string; value: string; cls: string }) {
 
 export default function Hero() {
   const [count, setCount] = createSignal(0);
-  const spinnerSrc = useSpriteAnimation(SPINNER_FRAMES, { frameStep: SPINNER_FRAME_STEP });
+  const spinnerSrc = createSpriteAnimation(SPINNER_FRAMES, { frameStep: SPINNER_FRAME_STEP });
   let underline: NodeMirror | undefined;
   onMount(() => {
     // Underline sweeps in once on mount — native tween, zero steady-state JS.

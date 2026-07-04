@@ -11,11 +11,11 @@
 // pre-split into <Text> lines), every class a FULL literal (the per-tile accent
 // border/gradient is baked per entry, never synthesized).
 
-import { Image, Show, Text, View, type NodeMirror } from "psp-ui/components";
-import { spring } from "psp-ui/animation";
-import { useButtonPress, useFrame } from "psp-ui/hooks";
-import { createMemo, createSignal, onMount } from "psp-ui/reactivity";
-import { BTN, focusNode } from "psp-ui/input";
+import { Image, Show, Text, View, type NodeMirror } from "@pocketjs/components";
+import { spring } from "@pocketjs/animation";
+import { onButtonPress, onFrame } from "@pocketjs/lifecycle";
+import { createMemo, createSignal, onMount } from "@pocketjs/reactivity";
+import { BTN, focusNode } from "@pocketjs/input";
 
 type Screen = "library" | "loading" | "detail";
 
@@ -204,10 +204,10 @@ export default function Library() {
     }
   };
 
-  useButtonPress(BTN.TRIANGLE, () => {
+  onButtonPress(BTN.TRIANGLE, () => {
     if (screen() === "detail") setScreen("library");
   });
-  useFrame(() => {
+  onFrame(() => {
     if (screen() !== "loading") return;
     const n = loadFrame() + 1;
     setLoadFrame(n);

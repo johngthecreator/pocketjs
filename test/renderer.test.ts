@@ -53,7 +53,7 @@ import {
   setInputRoot,
 } from "../src/input.ts";
 import { mount as publicMount, render as publicRender } from "../src/index.ts";
-import { pushButtonHandlerBlock, useButtonPress, useFrame } from "../src/hooks.ts";
+import { pushButtonHandlerBlock, onButtonPress, onFrame } from "../src/lifecycle.ts";
 import { rootMirror } from "../src/renderer.ts";
 import { ActionBar, ActionHandler, FocusGrid, Modal, Portal, Text, View } from "../src/components.ts";
 import { resetPack } from "../src/dcpak.ts";
@@ -998,7 +998,7 @@ describe("public render() (index.ts)", () => {
     const before: number[] = [];
     const dispose = publicMount(
       () => {
-        useFrame((buttons) => before.push(buttons));
+        onFrame((buttons) => before.push(buttons));
         const img = createElement("image");
         setProp(img, "src", "logo.png", undefined);
         return img;
@@ -1023,9 +1023,9 @@ describe("public render() (index.ts)", () => {
 
     const dispose = publicMount(
       () => {
-        useFrame(() => frames++);
-        useButtonPress(BTN.SELECT, () => backgroundPresses++);
-        useButtonPress(BTN.SELECT, () => systemPresses++, { allowWhenBlocked: true });
+        onFrame(() => frames++);
+        onButtonPress(BTN.SELECT, () => backgroundPresses++);
+        onButtonPress(BTN.SELECT, () => systemPresses++, { allowWhenBlocked: true });
         return createElement("view");
       },
     );

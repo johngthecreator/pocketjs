@@ -31,6 +31,12 @@ import tsPresetPkg from "@babel/preset-typescript/package.json";
 /** Absolute path of the universal renderer module — babel-preset-solid emits
  *  this verbatim into every import it generates, so it MUST be absolute [R]. */
 export const RENDERER_PATH = new URL("../src/renderer.ts", import.meta.url).pathname;
+const INDEX_PATH = new URL("../src/index.ts", import.meta.url).pathname;
+const ANIMATION_PATH = new URL("../src/animation.ts", import.meta.url).pathname;
+const COMPONENTS_PATH = new URL("../src/components.ts", import.meta.url).pathname;
+const INPUT_API_PATH = new URL("../src/input-api.ts", import.meta.url).pathname;
+const LIFECYCLE_PATH = new URL("../src/lifecycle.ts", import.meta.url).pathname;
+const REACTIVITY_PATH = new URL("../src/reactivity.ts", import.meta.url).pathname;
 
 const CACHE_DIR = new URL("../.cache/transforms/", import.meta.url).pathname;
 /** Bump to invalidate every cached transform (changes to this file's
@@ -168,6 +174,32 @@ interface CacheEntry {
   textCodepoints: number[];
 }
 
+function resolvePackageSubpath(spec: string): string | null {
+  if (spec === "psp-ui" || spec === "@pocketjs") return "";
+  if (spec.startsWith("psp-ui/")) return spec.slice("psp-ui/".length);
+  if (spec.startsWith("@pocketjs/")) return spec.slice("@pocketjs/".length);
+  return null;
+}
+
+function packagePath(spec: string): string | null {
+  switch (resolvePackageSubpath(spec)) {
+    case "":
+      return INDEX_PATH;
+    case "animation":
+      return ANIMATION_PATH;
+    case "components":
+      return COMPONENTS_PATH;
+    case "input":
+      return INPUT_API_PATH;
+    case "lifecycle":
+      return LIFECYCLE_PATH;
+    case "reactivity":
+      return REACTIVITY_PATH;
+    default:
+      return null;
+  }
+}
+
 /**
  * Transform one source file (content-hash cached). Throws on lint violations
  * and syntax errors; the error message carries file + code frame.
@@ -220,6 +252,10 @@ export function solidUniversalPlugin(): BunPlugin {
   return {
     name: "psp-ui-solid-universal",
     setup(build) {
+      build.onResolve({ filter: /^(?:psp-ui|@pocketjs)(?:\/.*)?$/ }, (args) => {
+        const path = packagePath(args.path);
+        return path ? { path } : undefined;
+      });
       build.onLoad({ filter: /\.tsx?$/ }, async (args) => {
         if (args.path.includes("/node_modules/") || args.path.endsWith(".d.ts")) return undefined;
         const src = await Bun.file(args.path).text();

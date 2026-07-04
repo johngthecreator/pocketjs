@@ -1,10 +1,10 @@
-// Hook-facing public API.
+// Lifecycle-facing public API.
 
 export {
   pushButtonHandlerBlock,
-  useFrame,
-  useButtonPress,
-  useSpriteAnimation,
+  onFrame,
+  onButtonPress,
+  createSpriteAnimation,
   type ButtonPressOptions,
   type SpriteAnimationOptions,
 } from "./frame.ts";

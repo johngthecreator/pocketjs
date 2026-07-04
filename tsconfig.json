@@ -13,7 +13,16 @@
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": ".",
+    "paths": {
+      "@pocketjs": ["./src/index.ts"],
+      "@pocketjs/animation": ["./src/animation.ts"],
+      "@pocketjs/components": ["./src/components.ts"],
+      "@pocketjs/input": ["./src/input-api.ts"],
+      "@pocketjs/lifecycle": ["./src/lifecycle.ts"],
+      "@pocketjs/reactivity": ["./src/reactivity.ts"]
+    }
   },
   "include": ["src", "compiler", "demos", "test", "spec", "host-web"]
 }

@@ -11,10 +11,10 @@
 // 480x272 (DESIGN.md punts kinetic scroll, so the list can't overflow the
 // screen); every class a FULL literal.
 
-import { For, Show, Text, View, type NodeMirror } from "psp-ui/components";
-import { animate } from "psp-ui/animation";
-import { useFrame } from "psp-ui/hooks";
-import { createSignal, onMount } from "psp-ui/reactivity";
+import { For, Show, Text, View, type NodeMirror } from "@pocketjs/components";
+import { animate } from "@pocketjs/animation";
+import { onFrame } from "@pocketjs/lifecycle";
+import { createSignal, onMount } from "@pocketjs/reactivity";
 
 interface Notice {
   id: string;
@@ -76,7 +76,7 @@ export default function Notifications() {
 
   const hasRise = () => Object.keys(riseOffsets()).length > 0 || riseQueued().length > 0;
 
-  useFrame(() => {
+  onFrame(() => {
     const queued = riseQueued();
     if (queued.length > 0) {
       for (const id of queued) {

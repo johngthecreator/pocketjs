@@ -128,8 +128,18 @@ function importSpecifiers(src: string): string[] {
  *  remapping like `./card.js` -> card.tsx included), so the two passes agree
  *  on the module graph by construction. */
 function resolveImport(fromFile: string, spec: string): string | null {
-  if (spec === "psp-ui" || spec.startsWith("psp-ui/")) {
-    const subpath = spec === "psp-ui" ? "" : spec.slice("psp-ui/".length);
+  if (
+    spec === "psp-ui" ||
+    spec.startsWith("psp-ui/") ||
+    spec === "@pocketjs" ||
+    spec.startsWith("@pocketjs/")
+  ) {
+    const subpath =
+      spec === "psp-ui" || spec === "@pocketjs"
+        ? ""
+        : spec.startsWith("psp-ui/")
+          ? spec.slice("psp-ui/".length)
+          : spec.slice("@pocketjs/".length);
     const exported = packageExports.get(subpath);
     return exported && /\.tsx?$/.test(exported) ? ROOT + exported : null;
   }

@@ -141,7 +141,7 @@ export function render(code: () => unknown, opts: RenderOptions = {}): () => voi
   setInputRoot(appRoot);
   resetFrameHooks();
   installFrameHandler((buttons: number) => {
-    runFrameHooks(buttons); // app hooks: useFrame/useButtonPress/etc.
+    runFrameHooks(buttons); // app lifecycle callbacks: onFrame/onButtonPress/etc.
     handleFrame(buttons); // edge-detect, focus nav, onPress (runs effects)
     runSweep(); // then destroy subtrees still detached [R]
   });
@@ -163,7 +163,7 @@ export function render(code: () => unknown, opts: RenderOptions = {}): () => voi
  * App-level entry point for demo/application bundles. It mirrors a web-style
  * mount call: pick the current host, feed the current generated style table,
  * upload dcpak images for injected hosts, and mount the component. Per-frame
- * app behavior belongs in component hooks such as useFrame/useButtonPress.
+ * app behavior belongs in component lifecycle callbacks such as onFrame/onButtonPress.
  */
 export function mount(code: () => unknown, opts: MountOptions = {}): () => void {
   const ops = opts.ops ?? globalOps();

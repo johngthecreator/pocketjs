@@ -7,7 +7,7 @@
     ".": "./src/index.ts",
     "./animation": "./src/animation.ts",
     "./components": "./src/components.ts",
-    "./hooks": "./src/hooks.ts",
+    "./lifecycle": "./src/lifecycle.ts",
     "./input": "./src/input-api.ts",
     "./reactivity": "./src/reactivity.ts"
   },

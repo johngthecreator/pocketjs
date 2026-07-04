@@ -4,7 +4,7 @@
 // lazy-loads. compileApp(source) does exactly what scripts/build.ts does — the
 // SAME @babel/core + babel-preset-solid transform, the SAME compiler/tailwind.ts
 // class compiler, the SAME compiler/bake-font.ts atlas baker, the SAME
-// compiler/dcpak.ts packer — so a playground app compiles byte-identically to a
+// compiler/pak.ts packer — so a playground app compiles byte-identically to a
 // real `bun scripts/build.ts` run. Only two build-time-only pieces are swapped
 // for browser equivalents: fonts/images are fetched (not read from disk) and
 // images are rasterized with a <canvas> instead of the node PNG/SVG decoders.
@@ -17,7 +17,7 @@ import { parse as parseFont, type Font } from "opentype.js";
 import { compileClasses, fontSlotInfo } from "../../compiler/tailwind.ts";
 import { bakeSlot } from "../../compiler/bake-font.ts";
 import {
-  DCPAK_DTYPE,
+  PAK_DTYPE,
   KEY_STYLES,
   encodeImageEntry,
   keyFont,
@@ -26,7 +26,7 @@ import {
   placeholderImage,
   type DecodedImage,
   type PakBlob,
-} from "../../compiler/dcpak.ts";
+} from "../../compiler/pak.ts";
 import { PSM } from "../../spec/spec.ts";
 
 /** babel `moduleName` — the specifier the universal transform imports its
@@ -38,8 +38,8 @@ export interface CompileResult {
   code: string;
   /** class literal → styleId (index.ts mount() takes this as opts.styles). */
   styleMap: Record<string, number>;
-  /** styles.bin + font atlases + images (mount() takes this as opts.dcpak). */
-  dcpak: ArrayBuffer;
+  /** styles.bin + font atlases + images (mount() takes this as opts.pak). */
+  pak: ArrayBuffer;
   classCount: number;
   slotCount: number;
   imageNames: string[];
@@ -142,8 +142,9 @@ async function transform(source: string): Promise<{ code: string; collected: Col
     filename: "app.tsx",
     presets: [
       [solidPreset, { generate: "universal", moduleName: RENDERER_MODULE }],
-      [tsPreset, { isTSX: true, allExtensions: true }],
+      [tsPreset, {}],
     ],
+    parserOpts: { plugins: ["jsx"] },
     plugins: [collectorPlugin(collected)],
     babelrc: false,
     configFile: false,
@@ -251,24 +252,24 @@ export async function compileApp(
   const atlases = await bakeAtlases(collected.codepoints, styles.usedFontSlots, opts.extraChars ?? "");
 
   const blobs: PakBlob[] = [
-    { key: KEY_STYLES, dtype: DCPAK_DTYPE.u8, data: styles.bin },
-    ...atlases.map((a) => ({ key: keyFont(a.slot), dtype: DCPAK_DTYPE.u8, data: a.bytes })),
+    { key: KEY_STYLES, dtype: PAK_DTYPE.u8, data: styles.bin },
+    ...atlases.map((a) => ({ key: keyFont(a.slot), dtype: PAK_DTYPE.u8, data: a.bytes })),
   ];
 
   const imageNames = [...new Set(collected.classStrings.filter((s) => IMAGE_RE.test(s)))];
   for (const name of imageNames) {
     const img = await rasterizeImage(name);
-    blobs.push({ key: keyImage(name), dtype: DCPAK_DTYPE.u8, data: encodeImageEntry(img, PSM.PSM_8888) });
+    blobs.push({ key: keyImage(name), dtype: PAK_DTYPE.u8, data: encodeImageEntry(img, PSM.PSM_8888) });
   }
 
   const packed = pack(blobs);
-  // Fresh, offset-0 ArrayBuffer so mount()'s dcpak reader sees exactly the pack.
-  const dcpak = packed.buffer.slice(packed.byteOffset, packed.byteOffset + packed.byteLength);
+  // Fresh, offset-0 ArrayBuffer so mount()'s pak reader sees exactly the pack.
+  const pak = packed.buffer.slice(packed.byteOffset, packed.byteOffset + packed.byteLength);
 
   return {
     code,
     styleMap: styles.ids,
-    dcpak,
+    pak,
     classCount: styles.records.length,
     slotCount: atlases.length,
     imageNames,

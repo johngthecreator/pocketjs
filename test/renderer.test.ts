@@ -56,9 +56,9 @@ import { mount as publicMount, render as publicRender } from "../src/index.ts";
 import { pushButtonHandlerBlock, onButtonPress, onFrame } from "../src/lifecycle.ts";
 import { rootMirror } from "../src/renderer.ts";
 import { ActionBar, ActionHandler, FocusGrid, Modal, Portal, Text, View } from "../src/components.ts";
-import { resetPack } from "../src/dcpak.ts";
-import { encodeImageEntry, pack } from "../compiler/dcpak.ts";
-import { BTN, DCPAK_DTYPE, NODE_TYPE, PSM, ROOT_ID, PROP, STYLE_ID_NONE } from "../spec/spec.ts";
+import { resetPack } from "../src/pak.ts";
+import { encodeImageEntry, pack } from "../compiler/pak.ts";
+import { BTN, PAK_DTYPE, NODE_TYPE, PSM, ROOT_ID, PROP, STYLE_ID_NONE } from "../spec/spec.ts";
 
 // ---------------------------------------------------------------------------
 // Mock host
@@ -156,9 +156,9 @@ beforeEach(() => {
   resetInput();
   setStyleResolver(resolveStyle);
   root = freshRoot();
-  const g = globalThis as { ui?: HostOps; __dcpak?: ArrayBuffer; frame?: (buttons: number) => void };
+  const g = globalThis as { ui?: HostOps; __pak?: ArrayBuffer; frame?: (buttons: number) => void };
   delete g.ui;
-  delete g.__dcpak;
+  delete g.__pak;
   delete g.frame;
 });
 
@@ -985,15 +985,15 @@ describe("public render() (index.ts)", () => {
     dispose();
   });
 
-  test("mount() hides host, dcpak image, and frame boilerplate", () => {
-    const g = globalThis as { ui?: HostOps; __dcpak?: ArrayBuffer; frame?: (buttons: number) => void };
+  test("mount() hides host, pak image, and frame boilerplate", () => {
+    const g = globalThis as { ui?: HostOps; __pak?: ArrayBuffer; frame?: (buttons: number) => void };
     g.ui = host.ops;
     const image = encodeImageEntry(
       { width: 1, height: 1, rgba: new Uint8Array([10, 20, 30, 255]) },
       PSM.PSM_8888,
     );
-    const pak = pack([{ key: "ui:img.logo.png", dtype: DCPAK_DTYPE.u8, data: image }]);
-    g.__dcpak = pak.buffer.slice(pak.byteOffset, pak.byteOffset + pak.byteLength) as ArrayBuffer;
+    const pak = pack([{ key: "ui:img.logo.png", dtype: PAK_DTYPE.u8, data: image }]);
+    g.__pak = pak.buffer.slice(pak.byteOffset, pak.byteOffset + pak.byteLength) as ArrayBuffer;
 
     const before: number[] = [];
     const dispose = publicMount(

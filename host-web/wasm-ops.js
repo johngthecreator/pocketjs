@@ -2,7 +2,7 @@
 // the browser dev host (engine.js) and the headless golden harness
 // (test/golden.ts). Plain ES module, zero dependencies; needs only
 // WebAssembly + TextEncoder (both exist in every browser and in Bun — the
-// QuickJS "no TextEncoder" constraint applies only to src/dcpak.ts, which
+// QuickJS "no TextEncoder" constraint applies only to src/pak.ts, which
 // this file is not).
 //
 // ABI (see wasm/src/lib.rs): one export per ui.* op; strings/buffers cross
@@ -82,11 +82,11 @@ export async function createWasmUi(wasm) {
 }
 
 /**
- * Upload every `ui:img.*` dcpak entry through ops.uploadTexture and return a
+ * Upload every `ui:img.*` pak entry through ops.uploadTexture and return a
  * Map of image name (the JSX `src` key) -> texture handle. Blob layout is the
- * compiler/dcpak.ts IMG entry: 8-byte header {u16 w, u16 h, u8 psm, 3B pad} +
+ * compiler/pak.ts IMG entry: 8-byte header {u16 w, u16 h, u8 psm, 3B pad} +
  * raw pixels. `getEntry(key)` / `listEntries(prefix)` come from the runtime's
- * dcpak reader (or any equivalent).
+ * pak reader (or any equivalent).
  */
 export function uploadPackImages(ops, listEntries, getEntry) {
   const IMG_PREFIX = "ui:img.";

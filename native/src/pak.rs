@@ -1,10 +1,10 @@
-//! Read-only .dcpak walker: feeds the embedded asset pack (APP_DCPAK,
+//! Read-only .pak walker: feeds the embedded asset pack (APP_PAK,
 //! include_bytes! over .rodata) STRAIGHT to the Rust core BEFORE any JS runs
 //! — zero QuickJS-heap transit [R].
 //!
-//! Container format: spec.ts "DCPAK container constants" (generated into
-//! core spec::dcpak; byte-compatible with dreamcart .dcpak). Entry keys
-//! written by compiler/dcpak.ts:
+//! Container format: spec.ts "PAK container constants" (generated into
+//! core spec::pak; byte-compatible with dreamcart .pak). Entry keys
+//! written by compiler/pak.ts:
 //!   ui:styles        -> Ui::load_styles (styles.bin)
 //!   ui:font.<slot>   -> Ui::load_font_atlas (slot is in the blob header)
 //!   ui:img.<name>    -> decode the 8-byte IMG header {u16 w, u16 h, u8 psm,
@@ -42,7 +42,7 @@ fn rd_u32(b: &[u8], off: usize) -> Option<u32> {
 pub fn feed(ui: &mut Ui, pak: &[u8]) -> Vec<(String, i32)> {
     let mut textures: Vec<(String, i32)> = Vec::new();
     let Some(()) = (|| {
-        if rd_u32(pak, 0)? != spec::dcpak::MAGIC || rd_u16(pak, 4)? != spec::dcpak::VERSION {
+        if rd_u32(pak, 0)? != spec::pak::MAGIC || rd_u16(pak, 4)? != spec::pak::VERSION {
             return None;
         }
         Some(())
@@ -58,9 +58,9 @@ pub fn feed(ui: &mut Ui, pak: &[u8]) -> Vec<(String, i32)> {
     // must not stall boot for ~4.3e9 iterations (or overflow `i * ENTRY_SIZE`
     // on 32-bit) — "malformed packs are skipped, never fatal".
     let count = (count as usize)
-        .min(pak.len().saturating_sub(dir_off as usize) / spec::dcpak::ENTRY_SIZE);
+        .min(pak.len().saturating_sub(dir_off as usize) / spec::pak::ENTRY_SIZE);
     for i in 0..count {
-        let e = dir_off as usize + i * spec::dcpak::ENTRY_SIZE;
+        let e = dir_off as usize + i * spec::pak::ENTRY_SIZE;
         let (Some(blob_off), Some(blob_len), Some(name_off), Some(name_len)) =
             (rd_u32(pak, e + 4), rd_u32(pak, e + 8), rd_u32(pak, e + 12), rd_u16(pak, e + 16))
         else {
@@ -76,15 +76,15 @@ pub fn feed(ui: &mut Ui, pak: &[u8]) -> Vec<(String, i32)> {
         let Ok(key) = core::str::from_utf8(name_bytes) else { continue };
         if key == "ui:styles" {
             if !ui.load_styles(blob) {
-                psp::dprintln!("[PocketJS dcpak] bad styles.bin");
+                psp::dprintln!("[PocketJS pak] bad styles.bin");
             }
         } else if key.starts_with("ui:font.") {
             if !ui.load_font_atlas(blob) {
-                psp::dprintln!("[PocketJS dcpak] bad font atlas {}", key);
+                psp::dprintln!("[PocketJS pak] bad font atlas {}", key);
             }
         } else if let Some(name) = key.strip_prefix("ui:img.") {
             // IMG entry: 8-byte header {u16 w, u16 h, u8 psm, 3B pad} + pixels
-            // (compiler/dcpak.ts encodeImageEntry).
+            // (compiler/pak.ts encodeImageEntry).
             let (Some(w), Some(h), Some(&psm)) = (rd_u16(blob, 0), rd_u16(blob, 2), blob.get(4))
             else {
                 continue;
@@ -104,7 +104,7 @@ pub fn feed(ui: &mut Ui, pak: &[u8]) -> Vec<(String, i32)> {
                 }
                 textures.push((String::from(name), handle));
             } else {
-                psp::dprintln!("[PocketJS dcpak] bad image {} ({}x{} psm {})", key, w, h, psm);
+                psp::dprintln!("[PocketJS pak] bad image {} ({}x{} psm {})", key, w, h, psm);
             }
         }
         // unknown keys: ignored (forward compatible)

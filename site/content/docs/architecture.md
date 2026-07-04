@@ -22,7 +22,7 @@ and why each choice was made.
    ┌────────────────────────────────────────────────┐
    │  bundle.js   +   styles.bin + atlases + images  │
    │      │                     │                     │
-   │      │                     └──► app.dcpak        │
+   │      │                     └──► app.pak        │
    └──────┼──────────────────────────────────────────┘
           │
    ┌──────┴──────────────────┐   ┌──────────────────────────┐
@@ -50,7 +50,7 @@ Reading it top to bottom:
 2. The **build** (`bun scripts/build.ts <app>`) runs `babel-preset-solid` in
    *universal* mode, compiles the class strings to a binary style table
    (`styles.bin`), bakes the exact glyphs the app uses into font atlases, and
-   packs the styles + atlases + images into a single container, `app.dcpak`. The
+   packs the styles + atlases + images into a single container, `app.pak`. The
    JS is bundled to `bundle.js`. See [Build pipeline](/docs/build-pipeline/) for
    the two-pass details.
 3. At **runtime**, the Solid runtime executes on whichever JS engine the host
@@ -203,7 +203,7 @@ pocketjs/
 
   spec/
     spec.ts             SINGLE SOURCE OF TRUTH: op codes, prop ids, enums,
-                        style-table / atlas / DrawList / dcpak formats
+                        style-table / atlas / DrawList / pak formats
     gen-rust.ts         codegen → core/src/spec.rs (committed)
 
   core/                 Rust lib `pocketjs-core` — #![no_std] + alloc
@@ -218,13 +218,13 @@ pocketjs/
 
   native/               Rust bin `pocketjs-psp` — the PSP EBOOT
     Cargo.toml          psp, libquickjs-sys, pocketjs-core (path)
-    build.rs            embeds the app JS + app.dcpak
+    build.rs            embeds the app JS + app.pak
     src/main.rs         boot, vblank loop, job pump
     src/alloc.rs        #[global_allocator] backed by the arena
     src/arena.rs        single-kernel-block allocator (see Memory)
     src/ffi.rs          QuickJS ui.* bindings → core ops
     src/ge.rs           DrawList → sceGu; per-frame bump vertex arena
-    src/dcpak.rs        native read-only .dcpak walker (styles/atlases/images)
+    src/pak.rs        native read-only .pak walker (styles/atlases/images)
 
   wasm/                 Rust cdylib `pocketjs-wasm` — core + rasterizer
     src/lib.rs          extern "C" op mirror + render() → RGBA8 480×272
@@ -233,7 +233,7 @@ pocketjs/
   src/                  TS/JS runtime shared by all hosts
     renderer.ts         Solid universal renderer; JS mirror tree; dispatch table
     host.ts             HostOps interface + PSP / wasm bindings
-    dcpak.ts            QuickJS-safe reader (web/test hosts)
+    pak.ts            QuickJS-safe reader (web/test hosts)
     input.ts            edge-detect + focus manager
     anim.ts             animate() / spring() implementation
     primitives.ts       lower-case host tags → View/Text/Image primitives
@@ -246,7 +246,7 @@ pocketjs/
     solid-plugin.ts     babel transform + per-file class/codepoint collection
     tailwind.ts         token parser → styles.bin + styles.generated.ts
     bake-font.ts        atlas baker (charset from AST scan + ASCII)
-    dcpak.ts            container writer
+    pak.ts            container writer
 
   host-web/             480×272 canvas playground + Bun dev server
   demos/                hero, cards, stats, library, settings, notifications, music

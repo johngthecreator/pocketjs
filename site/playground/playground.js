@@ -2,10 +2,10 @@
 // site/build.ts with CodeMirror into /pg/playground.bundle.js).
 //
 // Flow on every (debounced) edit:
-//   compile.js  compileApp(source) -> { code, styleMap, dcpak }   [may throw]
+//   compile.js  compileApp(source) -> { code, styleMap, pak }   [may throw]
 //   host.reset()                    fresh wasm core + globalThis.ui
 //   blob module A = transformed app (default export = the component)
-//   blob module B = `import App from A; mount(() => App(), {styles, dcpak})`
+//   blob module B = `import App from A; mount(() => App(), {styles, pak})`
 //   import(B) via the page import-map (@pocketjs/framework -> /pg/runtime.js)
 //   host.begin()                    grab globalThis.frame, drive 60 Hz
 //
@@ -122,7 +122,7 @@ async function main() {
       globalThis.__pgDispose = null;
       host.reset();
       globalThis.__pgStyles = result.styleMap;
-      globalThis.__pgDcpak = result.dcpak;
+      globalThis.__pgPak = result.pak;
 
       const appUrl = URL.createObjectURL(new Blob([result.code], { type: "text/javascript" }));
       const boot =
@@ -130,7 +130,7 @@ async function main() {
         `import { mount, __resetAll } from "@pocketjs/framework";\n` +
         `__resetAll();\n` +
         `globalThis.__pgDispose = mount(() => App(), ` +
-        `{ styles: globalThis.__pgStyles, dcpak: globalThis.__pgDcpak });\n`;
+        `{ styles: globalThis.__pgStyles, pak: globalThis.__pgPak });\n`;
       const bootUrl = URL.createObjectURL(new Blob([boot], { type: "text/javascript" }));
       try {
         await import(/* @vite-ignore */ bootUrl);

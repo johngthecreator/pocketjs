@@ -122,7 +122,7 @@ This produces two files in `dist/`:
 | File              | What it is                                                                 |
 | ----------------- | ------------------------------------------------------------------------- |
 | `dist/hero.js`    | Your app bundled to a single IIFE (unminified) that any host loads        |
-| `dist/hero.dcpak` | The packed asset file: the compiled style table, font atlases, and images |
+| `dist/hero.pak` | The packed asset file: the compiled style table, font atlases, and images |
 
 A few notes on the command:
 
@@ -179,14 +179,14 @@ local project.
    AST. The Tailwind-subset compiler turns the collected classes into
    `styles.bin`, the font baker rasterizes an Inter atlas containing *only* the
    characters your app uses, images are decoded, and it's all packed into
-   `dist/<app>.dcpak`.
+   `dist/<app>.pak`.
 2. **Bundle.** Bun bundles the app (IIFE, targeting the browser, unminified) from
    the cached pass-1 transforms into `dist/<app>.js`.
 
 Because styles and fonts are derived from your source, a class literal only
 compiles if *every* token is a supported utility, and the atlas only holds glyphs
 you reference. The full mechanics — caching, the class/codepoint collection, the
-dcpak format — are in [Build pipeline](/docs/build-pipeline/).
+pak format — are in [Build pipeline](/docs/build-pipeline/).
 
 ## Next steps
 

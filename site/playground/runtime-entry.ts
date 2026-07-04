@@ -78,11 +78,11 @@ export {
 // ---- reset between live-recompiles -----------------------------------------
 import { resetRendererState, resetTextures } from "../../src/renderer.ts";
 import { resetStyles } from "../../src/styles.ts";
-import { resetPack } from "../../src/dcpak.ts";
+import { resetPack } from "../../src/pak.ts";
 
 /** Wipe every runtime singleton so the NEXT mount() starts from a blank slate:
  *  the renderer mirror tree, retained/sweep sets, the class→styleId registry,
- *  the texture registry, and the cached dcpak. The wasm core is reset
+ *  the texture registry, and the cached pak. The wasm core is reset
  *  separately by the host (ui_init). Call BEFORE each recompiled mount(). */
 export function __resetAll(): void {
   resetRendererState();

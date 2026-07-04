@@ -534,7 +534,7 @@ export function generateStylesModule(c: CompiledStyles): string {
   L.push("/** Number of records in styles.bin (valid styleIds are 0..COUNT-1). */");
   L.push(`export const STYLE_COUNT = ${c.records.length};`);
   L.push("");
-  L.push("/** Baked font-atlas slots shipped in the dcpak: slot -> metrics. */");
+  L.push("/** Baked font-atlas slots shipped in the pak: slot -> metrics. */");
   L.push("export const FONT_SLOTS: Record<number, { px: number; bold: boolean }> = {");
   for (const slot of c.usedFontSlots) {
     const { px, bold } = fontSlotInfo(slot);

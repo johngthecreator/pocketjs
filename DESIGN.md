@@ -19,7 +19,7 @@ finding is folded in below and marked **[R]**.
         app.tsx  (Solid + Tailwind classes)
            │  babel-preset-solid {generate:'universal'}  (two-pass build)
            ▼
-        bundle.js      styles.bin + font atlases + images ──► app.dcpak
+        bundle.js      styles.bin + font atlases + images ──► app.pak
            │
    ┌── QuickJS (PSP) ──────────┐   ┌── browser / Bun ────────┐
    │ Solid runtime             │   │ Solid runtime           │
@@ -81,7 +81,7 @@ PocketJS/
   spec/
     spec.ts            SINGLE SOURCE OF TRUTH: op codes, prop ids, enums,
                        style-table format, atlas format, DrawList format,
-                       dcpak container constants (magic/header/entry/align/fnv1a) [R]
+                       pak container constants (magic/header/entry/align/fnv1a) [R]
     gen-rust.ts        codegen → core/src/spec.rs (committed)
   core/                Rust lib `pocketjs-core` — #![no_std] + alloc
     src/lib.rs         pub struct Ui: apply-ops, tick(1/60), draw() → &DrawList
@@ -102,7 +102,7 @@ PocketJS/
   native/              Rust bin `pocketjs-psp` — the EBOOT (standalone dir, lone bin)
     Cargo.toml         psp {external-c-heap, abort-only, external-global-alloc},
                        libquickjs-sys, pocketjs-core (path)
-    build.rs           embeds $POCKETJS_APP js + app.dcpak (PSPJS_GAME pattern);
+    build.rs           embeds $POCKETJS_APP js + app.pak (PSPJS_GAME pattern);
                        [features] capture = [] for the E2E frame-dump
     targets/mipsel-sony-psp.json  copied from runtime/ (self-contained)
     src/main.rs        boot (2MB USER|VFPU worker), vblank loop, job pump
@@ -114,7 +114,7 @@ PocketJS/
     src/ge.rs          DrawList → sceGu; PER-FRAME BUMP VERTEX ARENA (Vec<Chunk16>
                        pool allocated at boot, reset after sceGuSync — never reuse
                        a region within a frame; GE reads async in Direct mode) [R]
-    src/dcpak.rs       native read-only .dcpak walker: styles + atlases + images
+    src/pak.rs       native read-only .pak walker: styles + atlases + images
                        are fed to core DIRECTLY from include_bytes! before JS eval
                        (zero QuickJS-heap transit) [R]
   wasm/                Rust cdylib `pocketjs-wasm` — core + rasterizer, no wasm-bindgen
@@ -129,7 +129,7 @@ PocketJS/
                        removed and not re-attached during the frame; retain()/release()
                        escape hatch; FinalizationRegistry as backstop tier.
     host.ts            HostOps interface + PSP(globalThis.ui) / wasm bindings
-    dcpak.ts           QuickJS-safe reader (fromCharCode, NO TextDecoder) — web/test
+    pak.ts           QuickJS-safe reader (fromCharCode, NO TextDecoder) — web/test
                        hosts load styles/atlases through ops; PSP does it natively [R]
     styles.ts          class-string → styleId map (imports generated table)
     input.ts           edge-detect, focus manager (refocus on removal:
@@ -147,7 +147,7 @@ PocketJS/
                        token parses as a supported utility (else ignored) [R]
     bake-font.ts       atlas baker (charset from AST scan + ASCII always + extraChars
                        option [R]; gid 0 = tofu box)
-    dcpak.ts           writer (standalone; constants imported from spec/spec.ts)
+    pak.ts           writer (standalone; constants imported from spec/spec.ts)
   host-web/
     index.html         480×272 canvas playground, virtual buttons, demo picker
     engine.js          loads wasm, HostOps, rAF loop (fixed-step), keyboard map
@@ -179,12 +179,12 @@ PocketJS/
 2. **Compile styles & fonts.** `tailwind.ts` validates tokens (all-or-nothing
    per literal), assigns styleIds, writes `styles.bin` + `styles.generated.ts`
    (excluded from future scans). `bake-font.ts` bakes atlas slots for the
-   collected charset. `dcpak.ts` packs styles.bin + atlases + images →
-   `<app>.dcpak`.
+   collected charset. `pak.ts` packs styles.bin + atlases + images →
+   `<app>.pak`.
 3. **Pass 2 — bundle.** `Bun.build` with an onLoad plugin that serves the
    *cached* pass-1 transforms (styles.generated.ts now exists), `format:
    "iife"`, `minify:false`, `target:"browser"`. Output `<app>.js` next to the
-   dcpak.
+   pak.
 
 The PSP build (`scripts/psp.ts`) then runs `rustup run nightly-2026-05-28
 cargo psp` with the exact env block from `runtime/build.ts` (LLVM PATH,
@@ -212,7 +212,7 @@ children[], …}`) so reconciler *reads* never cross the FFI. Handles are `i32`
 | animate | `(id, propId, to:f64, durMs, easing, delayMs) → animId` | from = current |
 | cancelAnim | `(animId)` | |
 | setFocus | `(idOr0)` | applies `focus:` variant natively |
-| loadStyles / loadFontAtlas | `(buf …)` | **web/test hosts only** — on PSP, native/src/dcpak.rs feeds core directly from include_bytes! **[R]** |
+| loadStyles / loadFontAtlas | `(buf …)` | **web/test hosts only** — on PSP, native/src/pak.rs feeds core directly from include_bytes! **[R]** |
 | measureText | `(str, fontSlot) → width` | JS convenience; layout measures natively |
 
 **Text model [R].** A `<text>` element lays out its text-node children as one
@@ -311,7 +311,7 @@ One FFI crossing per steady-state frame; DrawList ≤ ~40 sceGuDrawArray calls,
 ≤ ~2000 quads; per-frame vertex bytes ≈48 KB from the bump pool; layout-prop
 animations relayout that frame (prefer transforms); Solid effects only on
 interaction. Boot: unminified but tree-shaken bundle; all binary assets in the
-dcpak (base64-in-JS is the known QuickJS boot killer).
+pak (base64-in-JS is the known QuickJS boot killer).
 
 ## What v1 explicitly punts
 

@@ -1,11 +1,11 @@
 // compiler/bake-svg.ts — tiny offline SVG rasterizer for baked UI icons.
 //
-// This is deliberately scoped to the assets we want to ship in dcpak today:
+// This is deliberately scoped to the assets we want to ship in pak today:
 // pow2-sized SVGs containing filled <circle> elements. Edges are supersampled
 // before being written as straight-alpha RGBA, so icons keep subpixel coverage
 // on both the wasm rasterizer and the PSP texture path.
 
-import type { DecodedImage } from "./dcpak.ts";
+import type { DecodedImage } from "./pak.ts";
 
 export const SVG_SUPERSAMPLE = 4;
 

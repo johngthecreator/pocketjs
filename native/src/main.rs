@@ -11,7 +11,7 @@
 //! Boot skeleton COPIED from the proven dreamcart runtime/src/main.rs with the
 //! gfx/gfx3d/bridge registrations replaced by the PocketJS stack:
 //!   - allocator.rs (src/alloc.rs): arena-backed #[global_allocator] [R]
-//!   - dcpak.rs: feeds styles/atlases/images to the core BEFORE JS eval
+//!   - pak.rs: feeds styles/atlases/images to the core BEFORE JS eval
 //!   - ffi.rs: globalThis.ui — the HostOps surface over the single core Ui
 //!   - ge.rs: DrawList -> sceGu with a per-frame bump vertex arena [R]
 //!
@@ -39,7 +39,7 @@ use psp::{Align16, BUF_WIDTH, SCREEN_HEIGHT, SCREEN_WIDTH};
 mod allocator;
 mod arena;
 mod c_heap;
-mod dcpak;
+mod pak;
 mod ffi;
 mod ge;
 mod qjs_alloc;
@@ -52,10 +52,10 @@ static mut LIST: Align16<[u32; 0x40000]> = Align16([0; 0x40000]);
 // App bundle selected by POCKETJS_APP (see build.rs), NUL-terminated there for
 // JS_Eval (which wants input[len] == '\0'). Empty when built with no app.
 static APP_JS: &str = include_str!(concat!(env!("OUT_DIR"), "/game.js"));
-// Asset pack: styles.bin + font atlases + images (.dcpak container). Fed to
-// the core natively (dcpak.rs) BEFORE JS eval; also exposed read-only to JS
-// as __dcpak. Aliases .rodata — JS must never write through it.
-static APP_DCPAK: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/app.dcpak"));
+// Asset pack: styles.bin + font atlases + images (.pak container). Fed to
+// the core natively (pak.rs) BEFORE JS eval; also exposed read-only to JS
+// as __pak. Aliases .rodata — JS must never write through it.
+static APP_PAK: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/app.pak"));
 static POCKETJS_TRACE: &str = env!("POCKETJS_TRACE");
 
 // Build-time scripted input for deterministic PPSSPPHeadless captures
@@ -217,9 +217,9 @@ unsafe fn run() {
     trace("run: init ui ok");
     // Feed styles.bin + font atlases + images straight from .rodata to the
     // core BEFORE any JS runs (zero QuickJS-heap transit) [R].
-    trace("run: dcpak feed begin");
-    let textures = dcpak::feed(ui, APP_DCPAK);
-    trace("run: dcpak feed ok");
+    trace("run: pak feed begin");
+    let textures = pak::feed(ui, APP_PAK);
+    trace("run: pak feed ok");
 
     // ---- QuickJS ----
     trace("run: JS_NewRuntime begin");
@@ -242,20 +242,20 @@ unsafe fn run() {
     ffi::register(ctx, global, &textures);
     trace("run: register ui ok");
 
-    // Expose the asset pack read-only as globalThis.__dcpak (zero-copy over
+    // Expose the asset pack read-only as globalThis.__pak (zero-copy over
     // .rodata; free_func = None). Web/test hosts feed core through loadStyles/
-    // loadFontAtlas ops instead — on PSP dcpak.rs already did it natively.
-    if !APP_DCPAK.is_empty() {
+    // loadFontAtlas ops instead — on PSP pak.rs already did it natively.
+    if !APP_PAK.is_empty() {
         let ab = JS_NewArrayBuffer(
             ctx,
-            APP_DCPAK.as_ptr() as *mut u8,
-            APP_DCPAK.len(),
+            APP_PAK.as_ptr() as *mut u8,
+            APP_PAK.len(),
             None,
             core::ptr::null_mut(),
             0,
         );
-        JS_SetPropertyStr(ctx, global, b"__dcpak\0".as_ptr() as *const _, ab);
-        trace("run: __dcpak installed");
+        JS_SetPropertyStr(ctx, global, b"__pak\0".as_ptr() as *const _, ab);
+        trace("run: __pak installed");
     }
 
     trace("run: JS_Eval begin");

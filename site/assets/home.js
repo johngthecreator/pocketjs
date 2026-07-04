@@ -23,7 +23,7 @@ async function boot() {
 
   const [js, pak] = await Promise.all([
     fetch(PG + "demo-bundles/" + SHOWCASE + ".js").then((r) => r.text()),
-    fetch(PG + "demo-bundles/" + SHOWCASE + ".dcpak").then((r) => r.arrayBuffer()),
+    fetch(PG + "demo-bundles/" + SHOWCASE + ".pak").then((r) => r.arrayBuffer()),
   ]);
   loadEl?.remove();
   host.runIIFE(js, pak);

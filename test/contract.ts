@@ -6,7 +6,7 @@
 //  (b) Round-trips the styles.bin encoder/decoder over a table exercising
 //      every feature (variants, transition, all three value kinds).
 //  (c) While PocketJS lives inside the dreamcart repo: greps the dreamcart
-//      sources our constants were copied from (BTN masks, dcpak magic) so an
+//      sources our constants were copied from (BTN masks, pak magic) so an
 //      upstream change is caught. Skipped silently after extraction.
 
 import { generateRust } from "../spec/gen-rust.ts";
@@ -14,7 +14,7 @@ import {
   abgr,
   animBit,
   BTN,
-  DCPAK_MAGIC,
+  PAK_MAGIC,
   decodeStyleTable,
   encodeStyleTable,
   ENUMS,
@@ -116,11 +116,11 @@ if (engineJs !== null) {
     check(re.test(engineJs), `BTN.${name} matches web/engine.js`);
   }
 }
-const dcpakTs = await Bun.file(
-  new URL("../../framework/bake/dcpak.ts", import.meta.url).pathname,
+const pakTs = await Bun.file(
+  new URL("../../framework/bake/pak.ts", import.meta.url).pathname,
 ).text().catch(() => null);
-if (dcpakTs !== null) {
-  check(dcpakTs.includes("0x4b504344") && DCPAK_MAGIC === 0x4b504344, "DCPAK magic matches framework/bake/dcpak.ts");
+if (pakTs !== null) {
+  check(pakTs.includes("0x4b504344") && PAK_MAGIC === 0x4b504344, "PAK magic matches framework/bake/pak.ts");
 }
 
 if (failed) {

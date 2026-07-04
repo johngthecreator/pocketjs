@@ -8,7 +8,7 @@ const MIME: Record<string, string> = {
   html: "text/html; charset=utf-8", js: "text/javascript; charset=utf-8",
   css: "text/css; charset=utf-8", json: "application/json", wasm: "application/wasm",
   svg: "image/svg+xml", png: "image/png", ttf: "font/ttf", map: "application/json",
-  dcpak: "application/octet-stream",
+  pak: "application/octet-stream",
 };
 function resolve(path: string): string | null {
   let p = DIST + path.replace(/^\/+/, "").replace(/\.\.+/g, "");

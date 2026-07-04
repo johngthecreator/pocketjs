@@ -1,25 +1,25 @@
-// QuickJS-safe .dcpak reader (dreamcart container v1 — constants pinned in
+// QuickJS-safe .pak reader (dreamcart container v1 — constants pinned in
 // spec/spec.ts). Used by web/test hosts to feed styles.bin / font atlases /
 // images to the core through ops.loadStyles/loadFontAtlas/uploadTexture; the
-// PSP host never runs this (native/src/dcpak.rs walks the pack from
+// PSP host never runs this (native/src/pak.rs walks the pack from
 // include_bytes! before JS eval).
 //
-// QuickJS constraints honored (precedent: framework/src/dcpak.ts):
+// QuickJS constraints honored (precedent: framework/src/pak.ts):
 //   - NO TextDecoder — keys are ASCII, decoded via String.fromCharCode.
 //   - DataView + unaligned little-endian reads only.
 //   - get() returns a FRESH copy (slice), so `.buffer` is exactly the blob.
 
 import {
-  DCPAK_ENTRY_SIZE,
-  DCPAK_HEADER_SIZE,
-  DCPAK_MAGIC,
-  DCPAK_VERSION,
+  PAK_ENTRY_SIZE,
+  PAK_HEADER_SIZE,
+  PAK_MAGIC,
+  PAK_VERSION,
 } from "../spec/spec.ts";
 
 interface Entry {
   off: number; // blob offset from pack start
   len: number; // blob byte length
-  dtype: number; // advisory DCPAK_DTYPE
+  dtype: number; // advisory PAK_DTYPE
 }
 
 let map: Map<string, Entry> | null = null;
@@ -34,12 +34,12 @@ function readKey(u8: Uint8Array, off: number, len: number): string {
 
 function parse(ab: ArrayBuffer): void {
   const dv = new DataView(ab);
-  if (ab.byteLength < DCPAK_HEADER_SIZE || dv.getUint32(0, true) !== DCPAK_MAGIC) {
-    throw new Error("dcpak: bad magic");
+  if (ab.byteLength < PAK_HEADER_SIZE || dv.getUint32(0, true) !== PAK_MAGIC) {
+    throw new Error("pak: bad magic");
   }
   const version = dv.getUint16(4, true);
-  if (version !== DCPAK_VERSION) {
-    throw new Error("dcpak: unsupported version " + version);
+  if (version !== PAK_VERSION) {
+    throw new Error("pak: unsupported version " + version);
   }
   const entryCount = dv.getUint32(8, true);
   const dirOff = dv.getUint32(12, true);
@@ -47,7 +47,7 @@ function parse(ab: ArrayBuffer): void {
   const u8 = new Uint8Array(ab);
   const m = new Map<string, Entry>();
   for (let i = 0; i < entryCount; i++) {
-    const e = dirOff + i * DCPAK_ENTRY_SIZE;
+    const e = dirOff + i * PAK_ENTRY_SIZE;
     const blobOff = dv.getUint32(e + 4, true);
     const byteLen = dv.getUint32(e + 8, true);
     const nameOff = dv.getUint32(e + 12, true);
@@ -76,12 +76,12 @@ export function resetPack(): void {
 
 function ensureLoaded(): void {
   if (map) return;
-  const ab = (globalThis as { __dcpak?: ArrayBuffer }).__dcpak;
+  const ab = (globalThis as { __pak?: ArrayBuffer }).__pak;
   if (!ab) return; // no pack — throws only on actual access
   parse(ab);
 }
 
-/** True when a pack is present (globalThis.__dcpak or loadPack). */
+/** True when a pack is present (globalThis.__pak or loadPack). */
 export function hasPack(): boolean {
   ensureLoaded();
   return map !== null;
@@ -107,19 +107,19 @@ export function get(key: string): Uint8Array {
   const e = map ? map.get(key) : undefined;
   if (!e) {
     throw new Error(
-      "dcpak: missing key " +
+      "pak: missing key " +
         key +
-        " (no __dcpak provided, or the pack is incomplete)",
+        " (no __pak provided, or the pack is incomplete)",
     );
   }
   // .slice() copies into a fresh, offset-0, length-exact ArrayBuffer.
   return bytes!.slice(e.off, e.off + e.len);
 }
 
-/** Advisory element dtype (spec DCPAK_DTYPE) of a blob; throws if absent. */
+/** Advisory element dtype (spec PAK_DTYPE) of a blob; throws if absent. */
 export function dtypeOf(key: string): number {
   ensureLoaded();
   const e = map ? map.get(key) : undefined;
-  if (!e) throw new Error("dcpak: missing key " + key);
+  if (!e) throw new Error("pak: missing key " + key);
   return e.dtype;
 }

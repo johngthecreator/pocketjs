@@ -6,7 +6,7 @@ One command turns a PocketJS app into two files:
 bun scripts/build.ts hero
 ```
 
-produces `dist/hero.js` (the bundle) and `dist/hero.dcpak` (styles, font
+produces `dist/hero.js` (the bundle) and `dist/hero.pak` (styles, font
 atlases, and images packed into a single binary container). Those two artifacts
 are everything a host needs — the same pair loads on real PSP hardware, in
 PPSSPP, in the browser dev host, and in headless Bun.
@@ -44,9 +44,9 @@ The output name is derived from the entry path, and both artifacts share it:
 
 | Entry | `dist/` outputs | Notes |
 |---|---|---|
-| `demos/hero/app.tsx` | `hero.js`, `hero.dcpak` | the app component |
-| `demos/hero/main.tsx` | `hero-main.js`, `hero-main.dcpak` | the mounted entry — calls `mount()` |
-| `foo/bar.tsx` | `bar.js`, `bar.dcpak` | non‑demo path: basename |
+| `demos/hero/app.tsx` | `hero.js`, `hero.pak` | the app component |
+| `demos/hero/main.tsx` | `hero-main.js`, `hero-main.pak` | the mounted entry — calls `mount()` |
+| `foo/bar.tsx` | `bar.js`, `bar.pak` | non‑demo path: basename |
 
 A demo typically has `app.tsx` (the exported UI) and `main.tsx` (a tiny file
 that imports the app and mounts it). You build `hero-main` when you want a
@@ -68,15 +68,17 @@ last‑to‑first, so TypeScript strips types first, then Solid compiles the JSX
 ```ts
 presets: [
   [solidPreset, { generate: "universal", moduleName: RENDERER_PATH }],
-  [tsPreset,    { isTSX: true, allExtensions: true }],
-]
+  [tsPreset,    {}],
+],
+parserOpts: { plugins: ["jsx"] },
 ```
 
 `babel-preset-solid` with `generate: "universal"` compiles JSX into calls
 against the universal renderer (`createElement`, `insertNode`, `setProp`, …)
 rather than DOM operations. `moduleName` is the **absolute** path to
 `src/renderer.ts` — the preset emits it verbatim into every generated import, so
-it must be absolute. `@babel/preset-typescript` handles the type stripping.
+it must be absolute. `@babel/preset-typescript` handles type stripping;
+`parserOpts` enables JSX parsing without relying on Babel 7-only preset flags.
 
 ### What it collects
 
@@ -137,7 +139,7 @@ Two literals that produce byte‑identical records share a single styleId, so
 `class="p-2 bg-slate-700"` and `class="bg-slate-700 p-2"` cost one record. The
 compiler emits:
 
-- **`styles.bin`** — the encoded style table, packed into the dcpak as
+- **`styles.bin`** — the encoded style table, packed into the pak as
   `ui:styles`.
 - **`src/styles.generated.ts`** — a TypeScript module the renderer imports,
   mapping each source class literal to its styleId, plus the font‑slot metadata
@@ -185,7 +187,7 @@ The charset baked into every slot is the union of:
 Codepoints the font doesn't map are left out; the core resolves a cmap miss to
 glyph 0 (a hollow "tofu" box) at runtime. Each atlas is horizontally
 supersampled 8‑bit coverage cells plus proportional advances and a cmap, and is
-packed into the dcpak as `ui:font.<slot>`.
+packed into the pak as `ui:font.<slot>`.
 
 ```
   font: slot 2 (16px) 96 glyphs, cell 10x19, 18240 bytes
@@ -213,10 +215,10 @@ limit.
   image: logo.png <- /…/demos/hero/logo.png (128x64)
 ```
 
-## Pack the dcpak
+## Pack the pak
 
-All the binary output is written to one container, `dist/<app>.dcpak`. It is
-byte‑for‑byte the dreamcart `.dcpak` format, so existing tooling can open it.
+All the binary output is written to one container, `dist/<app>.pak`. It is
+byte‑for‑byte the dreamcart `.pak` format, so existing tooling can open it.
 PocketJS uses three families of entry keys:
 
 | Key | Contents |
@@ -230,7 +232,7 @@ and how the PSP feeds them straight into the Rust core from `include_bytes!`
 without touching the JS heap — is covered in the [Native contract](/docs/native-contract/).
 
 ```
-  dcpak: 4 entries, 20480 bytes -> dist/hero.dcpak
+  pak: 4 entries, 20480 bytes -> dist/hero.pak
 ```
 
 ## Pass 2 — bundle
@@ -267,7 +269,7 @@ A few settings are deliberate:
   Solid's dev builds and duplicate the runtimes.
 - **`minify: false`** — the bundle ships unminified but tree‑shaken; base64 blobs
   in JS are the known QuickJS boot killer, which is why all binary assets live in
-  the dcpak instead.
+  the pak instead.
 
 ```
   pass 2: dist/hero.js (128000 bytes)
@@ -278,14 +280,14 @@ PocketJS build: done
 
 The [Playground](/playground/) runs this exact pipeline **live in the browser**:
 it transforms and collects, compiles the Tailwind subset, bakes atlases, packs a
-dcpak, and bundles — then loads the result into the WebAssembly build of the
+pak, and bundles — then loads the result into the WebAssembly build of the
 core and renders to a canvas. There is no separate web toolchain; edit the code,
-rebuild, and the same `.js` + `.dcpak` a PSP would run is what draws in the
+rebuild, and the same `.js` + `.pak` a PSP would run is what draws in the
 preview.
 
 ## Related
 
 - [Styling](/docs/styling/) and [Tailwind subset](/docs/tailwind/) — what the class compiler accepts.
-- [Native contract](/docs/native-contract/) — how a host consumes the dcpak and drives the core.
+- [Native contract](/docs/native-contract/) — how a host consumes the pak and drives the core.
 - [Architecture](/docs/architecture/) — where the renderer, core, and hosts fit together.
 - [Getting started](/docs/getting-started/) — install, scaffold, and run your first build.

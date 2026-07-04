@@ -3,7 +3,7 @@
 //! PSPJS_GAME pattern), renamed to POCKETJS_APP.
 //!
 //! Set `POCKETJS_APP` to an app name whose build outputs exist in ../dist/
-//! (written by scripts/build.ts as `<app>.js` + `<app>.dcpak`):
+//! (written by scripts/build.ts as `<app>.js` + `<app>.pak`):
 //!   POCKETJS_APP=hero bun scripts/psp.ts
 //!
 //! Both embeds have EMPTY fallbacks so include_str!/include_bytes! in main.rs
@@ -30,14 +30,14 @@ fn main() {
     code.push('\0');
     fs::write(Path::new(&out_dir).join("game.js"), code).unwrap();
 
-    // Asset pack (styles.bin + font atlases + images; .dcpak container) ->
-    // $OUT_DIR/app.dcpak. Empty when absent; main.rs skips an empty pack.
-    let dcpak = if app.is_empty() {
+    // Asset pack (styles.bin + font atlases + images; .pak container) ->
+    // $OUT_DIR/app.pak. Empty when absent; main.rs skips an empty pack.
+    let pak = if app.is_empty() {
         Vec::new()
     } else {
-        fs::read(dist.join(format!("{app}.dcpak"))).unwrap_or_default()
+        fs::read(dist.join(format!("{app}.pak"))).unwrap_or_default()
     };
-    fs::write(Path::new(&out_dir).join("app.dcpak"), dcpak).unwrap();
+    fs::write(Path::new(&out_dir).join("app.pak"), pak).unwrap();
 
     // Scripted input for deterministic capture builds (test/e2e-ppsspp.ts):
     // "frame:mask,frame:mask" baked into the EBOOT, consumed by main.rs only

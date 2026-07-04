@@ -14,7 +14,7 @@ Full design + contracts: [DESIGN.md](./DESIGN.md).
 
 ```sh
 bun install
-bun scripts/build.ts hero             # -> dist/hero.js + dist/hero.dcpak
+bun scripts/build.ts hero             # -> dist/hero.js + dist/hero.pak
 ```
 
 The build is two-pass: pass 1 babel-transforms every module reachable from the
@@ -22,7 +22,7 @@ entry (babel-preset-solid `generate:'universal'`, content-hash cached in
 `.cache/`) while collecting class strings + text codepoints from the AST; then
 the Tailwind compiler writes `styles.bin` + `src/styles.generated.ts`, the font
 baker rasterizes Inter atlas slots for exactly the characters your app uses,
-and everything is packed into `dist/<app>.dcpak`. Pass 2 bundles with Bun
+and everything is packed into `dist/<app>.pak`. Pass 2 bundles with Bun
 (iife, unminified) from the cached transforms.
 
 ```tsx
@@ -42,7 +42,7 @@ const [count, setCount] = createSignal(0);
 ```
 
 Mounting entries should look like ordinary app bootstrap code; the framework
-handles host detection, the generated style table, dcpak image uploads and the
+handles host detection, the generated style table, pak image uploads and the
 host frame callback:
 
 ```tsx

@@ -23,7 +23,7 @@ const MIME: Record<string, string> = {
   json: "application/json",
   wasm: "application/wasm",
   png: "image/png",
-  dcpak: "application/octet-stream",
+  pak: "application/octet-stream",
 };
 
 function fileResponse(path: string): Response {
@@ -49,7 +49,7 @@ function demoManifest(): { name: string; hasPak: boolean; mounts: boolean }[] {
       const src = readFileSync(DIST_DIR + f, "utf8");
       return {
         name,
-        hasPak: existsSync(DIST_DIR + name + ".dcpak"),
+        hasPak: existsSync(DIST_DIR + name + ".pak"),
         mounts: src.includes("installFrameHandler"),
       };
     });

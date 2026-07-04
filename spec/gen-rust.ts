@@ -10,14 +10,14 @@
 import {
   ANIMATABLE,
   BTN,
-  DCPAK_ALIGN,
-  DCPAK_DTYPE,
-  DCPAK_ENTRY_SIZE,
-  DCPAK_FNV1A_OFFSET_BASIS,
-  DCPAK_FNV1A_PRIME,
-  DCPAK_HEADER_SIZE,
-  DCPAK_MAGIC,
-  DCPAK_VERSION,
+  PAK_ALIGN,
+  PAK_DTYPE,
+  PAK_ENTRY_SIZE,
+  PAK_FNV1A_OFFSET_BASIS,
+  PAK_FNV1A_PRIME,
+  PAK_HEADER_SIZE,
+  PAK_MAGIC,
+  PAK_VERSION,
   DRAW_OP,
   ENUMS,
   FIXED_DT,
@@ -273,18 +273,18 @@ export function generateRust(): string {
   put("}");
   put("");
 
-  // --- dcpak ----------------------------------------------------------------------
-  put("/// .dcpak container constants (byte-compatible with dreamcart's format;");
-  put("/// copied from framework/bake/dcpak.ts + docs/dcpak-format.md).");
-  put("pub mod dcpak {");
-  put(`    pub const MAGIC: u32 = ${hex(DCPAK_MAGIC)}; // 'DCPK' LE`);
-  put(`    pub const VERSION: u16 = ${DCPAK_VERSION};`);
-  put(`    pub const HEADER_SIZE: usize = ${DCPAK_HEADER_SIZE};`);
-  put(`    pub const ENTRY_SIZE: usize = ${DCPAK_ENTRY_SIZE};`);
-  put(`    pub const ALIGN: usize = ${DCPAK_ALIGN};`);
-  put(`    pub const FNV1A_OFFSET_BASIS: u32 = ${hex(DCPAK_FNV1A_OFFSET_BASIS)};`);
-  put(`    pub const FNV1A_PRIME: u32 = ${hex(DCPAK_FNV1A_PRIME)};`);
-  for (const [name, v] of Object.entries(DCPAK_DTYPE)) {
+  // --- pak ----------------------------------------------------------------------
+  put("/// .pak container constants (byte-compatible with dreamcart's format;");
+  put("/// copied from framework/bake/pak.ts + docs/pak-format.md).");
+  put("pub mod pak {");
+  put(`    pub const MAGIC: u32 = ${hex(PAK_MAGIC)}; // 'DCPK' LE`);
+  put(`    pub const VERSION: u16 = ${PAK_VERSION};`);
+  put(`    pub const HEADER_SIZE: usize = ${PAK_HEADER_SIZE};`);
+  put(`    pub const ENTRY_SIZE: usize = ${PAK_ENTRY_SIZE};`);
+  put(`    pub const ALIGN: usize = ${PAK_ALIGN};`);
+  put(`    pub const FNV1A_OFFSET_BASIS: u32 = ${hex(PAK_FNV1A_OFFSET_BASIS)};`);
+  put(`    pub const FNV1A_PRIME: u32 = ${hex(PAK_FNV1A_PRIME)};`);
+  for (const [name, v] of Object.entries(PAK_DTYPE)) {
     put(`    pub const DT_${name.toUpperCase()}: u8 = ${v};`);
   }
   put("}");

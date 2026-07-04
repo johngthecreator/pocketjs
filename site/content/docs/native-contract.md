@@ -33,7 +33,7 @@ Signatures are authoritative from `src/host.ts` (`HostOps`) and `spec/spec.ts`. 
 | 11 | `animate` | `(id, propId, to: f64, durMs, easing, delayMs) → animId` | `from` is the current value. `easing` is an `ENUMS.Easing` ordinal. Returns an anim id. |
 | 12 | `cancelAnim` | `(animId) → void` | Stops the track. |
 | 13 | `setFocus` | `(idOr0) → void` | Applies the `focus:` style variant natively. `0` clears focus. |
-| 14 | `loadStyles` | `(buf) → void` | **web/test hosts only.** Optional. Feeds the compiled `styles.bin`. On PSP the native binary feeds core from the dcpak. |
+| 14 | `loadStyles` | `(buf) → void` | **web/test hosts only.** Optional. Feeds the compiled `styles.bin`. On PSP the native binary feeds core from the pak. |
 | 15 | `loadFontAtlas` | `(buf) → void` | **web/test hosts only.** Optional. One call per baked font atlas blob. |
 | 16 | `measureText` | `(str, fontSlot) → width` | JS-side convenience returning width in px. Layout still measures natively. |
 
@@ -109,7 +109,7 @@ None of those touch the host. Structural mutations (`insertNode`, `removeNode`, 
 
 The reasoning is asymmetric on purpose. On real hardware a thrown error is a black screen; a missing style is a slightly-wrong box. So the PSP host counts misses (`missCounters.unknownClass` / `unknownTexture`) and renders on. The web, wasm, and headless-Bun hosts are development and CI surfaces, where a silent wrong-color pixel is worse than a stack trace — so they throw the moment a class isn't in the compiled table or a `src` key has no registered texture.
 
-Resolution order: an injected `HostOps` wins; otherwise `globalThis.ui`; if neither exists, `render()` throws (PocketJS cannot run without a native tree). One special case: the PSP demo entries pass `globalThis.ui` *explicitly*. That object carries a `__textures` marker set only by native `ffi.rs`, so it is still detected as kind `psp` / non-strict — and `render()` skips re-feeding `loadStyles`/`loadFontAtlas`, because the native dcpak walker already fed core directly.
+Resolution order: an injected `HostOps` wins; otherwise `globalThis.ui`; if neither exists, `render()` throws (PocketJS cannot run without a native tree). One special case: the PSP demo entries pass `globalThis.ui` *explicitly*. That object carries a `__textures` marker set only by native `ffi.rs`, so it is still detected as kind `psp` / non-strict — and `render()` skips re-feeding `loadStyles`/`loadFontAtlas`, because the native pak walker already fed core directly.
 
 Every host drives frames the same way: once per tick it calls `globalThis.frame(buttons)` with the PSP button bitmask (`BTN` in the spec). `index.ts` composes input edge-detection and the end-of-frame sweep into that entry point via `installFrameHandler`. See [Input & focus](/docs/input-focus/) for the button model and [Architecture](/docs/architecture/) for how the hosts fit together. The [playground](/playground/) runs the injected web host in the browser.
 

@@ -129,9 +129,9 @@ async function main() {
   const showcase = ["settings-main", "launcher-main", "music-main"];
   for (const s of showcase) {
     const js = ROOT + "dist/" + s + ".js";
-    const pak = ROOT + "dist/" + s + ".dcpak";
+    const pak = ROOT + "dist/" + s + ".pak";
     if (existsSync(js)) copy(js, "pg/demo-bundles/" + s + ".js");
-    if (existsSync(pak)) copy(pak, "pg/demo-bundles/" + s + ".dcpak");
+    if (existsSync(pak)) copy(pak, "pg/demo-bundles/" + s + ".pak");
   }
 
   // 5. static assets + Tailwind CSS (compiled AFTER pages exist so the content

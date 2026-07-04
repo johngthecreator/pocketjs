@@ -211,7 +211,7 @@ runtime on hardware:
   tick in Rust at a fixed 1/60 s, so animation is a pure function of frame index
   (which is what makes byte-exact goldens possible) and costs the JS side nothing
   per frame.
-- **For "async" data:** load it at build time into the app bundle / dcpak, or
+- **For "async" data:** load it at build time into the app bundle / pak, or
   drive it from host input. There is no runtime fetch on the PSP.
 
 Everything you need for interactive UI — derive with memos, react with effects,

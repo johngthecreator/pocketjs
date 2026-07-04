@@ -32,7 +32,7 @@ import { setOverlayRoot } from "./overlay.ts";
 import { registerStyles, resolveStyle } from "./styles.ts";
 import { handleFrame, setInputRoot } from "./input.ts";
 import { resetFrameHooks, runFrameHooks } from "./frame.ts";
-import { entries as dcpakEntries, get as dcpakGet, hasPack, loadPack } from "./dcpak.ts";
+import { entries as pakEntries, get as pakGet, hasPack, loadPack } from "./pak.ts";
 import { STYLE_IDS as DEFAULT_STYLE_IDS } from "./styles.generated.ts";
 import { ENUMS, SCREEN_H, SCREEN_W } from "../spec/spec.ts";
 
@@ -41,14 +41,14 @@ export interface RenderOptions {
   ops?: HostOps;
   /** STYLE_IDS table (styles.generated.ts) — class literal → styleId. */
   styles?: Record<string, number>;
-  /** App pack; defaults to globalThis.__dcpak when present. */
-  dcpak?: ArrayBuffer;
+  /** App pack; defaults to globalThis.__pak when present. */
+  pak?: ArrayBuffer;
 }
 
 export type MountOptions = RenderOptions;
 
-/** dcpak entry keys the runtime understands when it loads a pack JS-side.
- * Must match compiler/dcpak.ts (KEY_STYLES / keyFont). */
+/** pak entry keys the runtime understands when it loads a pack JS-side.
+ * Must match compiler/pak.ts (KEY_STYLES / keyFont). */
 const STYLES_KEY = "ui:styles";
 const FONT_PREFIX = "ui:font.";
 const IMG_PREFIX = "ui:img.";
@@ -57,12 +57,12 @@ function globalOps(): HostOps | undefined {
   return (globalThis as { ui?: HostOps }).ui;
 }
 
-function uploadDcpakImages(ops: HostOps): void {
-  // PSP native dcpak.rs already uploaded pack images and exposed the handle
+function uploadPakImages(ops: HostOps): void {
+  // PSP native pak.rs already uploaded pack images and exposed the handle
   // table through ui.__textures; web/wasm/test hosts need the JS-side upload.
   if ((ops as HostOps & { __textures?: unknown }).__textures) return;
-  for (const key of dcpakEntries(IMG_PREFIX)) {
-    const blob = dcpakGet(key);
+  for (const key of pakEntries(IMG_PREFIX)) {
+    const blob = pakGet(key);
     const dv = new DataView(blob.buffer, blob.byteOffset, blob.byteLength);
     const w = dv.getUint16(0, true);
     const h = dv.getUint16(2, true);
@@ -83,7 +83,7 @@ function createLayer(style: Record<string, number>): NodeMirror {
  * disposer that unmounts and destroys the app subtree.
  *
  * On PSP the native bin has already fed styles/atlases to the core from the
- * dcpak (zero QuickJS transit); on injected hosts (web/test) render() pushes
+ * pak (zero QuickJS transit); on injected hosts (web/test) render() pushes
  * them through ops.loadStyles/loadFontAtlas here.
  */
 export function render(code: () => unknown, opts: RenderOptions = {}): () => void {
@@ -94,7 +94,7 @@ export function render(code: () => unknown, opts: RenderOptions = {}): () => voi
   if (opts.styles) registerStyles(opts.styles);
 
   if (host.kind === "psp") {
-    // PSP native host: native/src/dcpak.rs already fed styles/atlases to the
+    // PSP native host: native/src/pak.rs already fed styles/atlases to the
     // core and uploaded the pack's images at boot, leaving a name -> texture-
     // handle table on the ui namespace (ffi.rs). Bind it so <image src="name">
     // resolves through the renderer's texture registry.
@@ -105,13 +105,13 @@ export function render(code: () => unknown, opts: RenderOptions = {}): () => voi
   }
 
   if (host.kind === "injected") {
-    if (opts.dcpak) loadPack(opts.dcpak);
+    if (opts.pak) loadPack(opts.pak);
     if (hasPack()) {
-      for (const key of dcpakEntries()) {
+      for (const key of pakEntries()) {
         if (key === STYLES_KEY) {
-          host.ops.loadStyles?.(dcpakGet(key));
+          host.ops.loadStyles?.(pakGet(key));
         } else if (key.startsWith(FONT_PREFIX)) {
-          host.ops.loadFontAtlas?.(dcpakGet(key));
+          host.ops.loadFontAtlas?.(pakGet(key));
         }
         // images: hosts upload + registerTexture() themselves (w/h/psm live
         // in host-specific metadata, not in the runtime).
@@ -162,7 +162,7 @@ export function render(code: () => unknown, opts: RenderOptions = {}): () => voi
 /**
  * App-level entry point for demo/application bundles. It mirrors a web-style
  * mount call: pick the current host, feed the current generated style table,
- * upload dcpak images for injected hosts, and mount the component. Per-frame
+ * upload pak images for injected hosts, and mount the component. Per-frame
  * app behavior belongs in component lifecycle callbacks such as onFrame/onButtonPress.
  */
 export function mount(code: () => unknown, opts: MountOptions = {}): () => void {
@@ -170,12 +170,12 @@ export function mount(code: () => unknown, opts: MountOptions = {}): () => void 
   if (!ops) {
     throw new Error("PocketJS: mount() requires globalThis.ui or opts.ops");
   }
-  if (opts.dcpak) loadPack(opts.dcpak);
-  uploadDcpakImages(ops);
+  if (opts.pak) loadPack(opts.pak);
+  uploadPakImages(ops);
   const dispose = render(code, {
     ops,
     styles: opts.styles ?? DEFAULT_STYLE_IDS,
-    dcpak: opts.dcpak,
+    pak: opts.pak,
   });
   return dispose;
 }
@@ -187,4 +187,4 @@ export { detectHost, installHost, getOps } from "./host.ts";
 export type { NodeMirror } from "./renderer.ts";
 export { retain, release, runSweep, registerTexture, missCounters } from "./renderer.ts";
 export { registerStyles, resolveStyle } from "./styles.ts";
-export { entries as dcpakEntries, get as dcpakGet, loadPack, resetPack } from "./dcpak.ts";
+export { entries as pakEntries, get as pakGet, loadPack, resetPack } from "./pak.ts";

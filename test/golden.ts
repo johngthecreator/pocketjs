@@ -2,7 +2,7 @@
 //
 // Loads host-web/pocketjs.wasm under Bun, installs the SAME HostOps binding the
 // browser host uses (host-web/wasm-ops.js), evals a dist/<demo>.js bundle with
-// globalThis.ui + globalThis.__dcpak pre-installed (the host contract), drives
+// globalThis.ui + globalThis.__pak pre-installed (the host contract), drives
 // N fixed-dt frames with a scripted input function, captures the RGBA
 // framebuffer at chosen frames and byte-compares the encoded PNG against the
 // committed test/goldens/<demo>.<frame>.png.
@@ -280,8 +280,8 @@ async function runDemo(spec: Spec): Promise<Map<number, Uint8Array>> {
   const wasm = await createWasmUi(wasmBytes);
   const g = globalThis as Record<string, unknown>;
   g.ui = wasm.ops; // the host contract: HostOps BEFORE eval
-  g.__dcpak = existsSync(DIST + spec.name + ".dcpak")
-    ? await Bun.file(DIST + spec.name + ".dcpak").arrayBuffer()
+  g.__pak = existsSync(DIST + spec.name + ".pak")
+    ? await Bun.file(DIST + spec.name + ".pak").arrayBuffer()
     : undefined;
   g.frame = undefined;
   try {
@@ -301,7 +301,7 @@ async function runDemo(spec: Spec): Promise<Map<number, Uint8Array>> {
     return captures;
   } finally {
     delete g.ui;
-    delete g.__dcpak;
+    delete g.__pak;
     g.frame = undefined;
   }
 }

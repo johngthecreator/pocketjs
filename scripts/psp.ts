@@ -1,4 +1,4 @@
-// scripts/psp.ts <app> [cargo args…] — build the app JS+dcpak (scripts/
+// scripts/psp.ts <app> [cargo args…] — build the app JS+pak (scripts/
 // build.ts), then the EBOOT:
 //   POCKETJS_APP=<app> rustup run nightly-2026-05-28 cargo psp
 // inside native/, with the exact env block from dreamcart runtime/build.ts
@@ -87,7 +87,7 @@ function mountedAppName(arg: string): string {
 const app = mountedAppName(appArg);
 
 // ---------------------------------------------------------------------------
-// 1. Build the app bundle + dcpak -> dist/<app>.js + dist/<app>.dcpak
+// 1. Build the app bundle + pak -> dist/<app>.js + dist/<app>.pak
 // ---------------------------------------------------------------------------
 
 console.log(`PocketJS psp: building app "${app}"`);

@@ -8,7 +8,7 @@
 //         collecting candidate class strings + text codepoints from the AST.
 // compile tailwind.ts -> styles.bin + src/styles.generated.ts;
 //         bake-font.ts -> font atlas per used slot; demo images (PNG/SVG or a
-//         placeholder); dcpak.ts packs it all -> dist/<app>.dcpak.
+//         placeholder); pak.ts packs it all -> dist/<app>.pak.
 // pass 2  Bun.build (plugin serves the CACHED pass-1 transforms, iife,
 //         target browser, minify false) -> dist/<app>.js.
 //
@@ -22,7 +22,7 @@ import { compileClasses, generateStylesModule } from "../compiler/tailwind.ts";
 import { bakeAtlases } from "../compiler/bake-font.ts";
 import { bakeSvg } from "../compiler/bake-svg.ts";
 import {
-  DCPAK_DTYPE,
+  PAK_DTYPE,
   KEY_STYLES,
   decodePng,
   encodeImageEntry,
@@ -31,7 +31,7 @@ import {
   pack,
   placeholderImage,
   type PakBlob,
-} from "../compiler/dcpak.ts";
+} from "../compiler/pak.ts";
 
 const ROOT = new URL("..", import.meta.url).pathname; // pocketjs/
 const DIST = ROOT + "dist/";
@@ -197,8 +197,8 @@ for (const a of atlases) {
 
 // demo images: any collected literal ending .png/.svg is a candidate asset name
 const blobs: PakBlob[] = [
-  { key: KEY_STYLES, dtype: DCPAK_DTYPE.u8, data: styles.bin },
-  ...atlases.map((a) => ({ key: keyFont(a.slot), dtype: DCPAK_DTYPE.u8, data: a.bytes })),
+  { key: KEY_STYLES, dtype: PAK_DTYPE.u8, data: styles.bin },
+  ...atlases.map((a) => ({ key: keyFont(a.slot), dtype: PAK_DTYPE.u8, data: a.bytes })),
 ];
 const appDir = entry.slice(0, entry.lastIndexOf("/") + 1);
 const imageNames = classStrings.filter((s) => /^[\w./-]+\.(?:png|svg)$/i.test(s));
@@ -218,12 +218,12 @@ for (const name of imageNames) {
     img = placeholderImage();
     console.log(`  image: ${name} not found (tried ${candidates.join(", ")}) — baking a 32x32 placeholder`);
   }
-  blobs.push({ key: keyImage(name), dtype: DCPAK_DTYPE.u8, data: encodeImageEntry(img, PSM.PSM_8888) });
+  blobs.push({ key: keyImage(name), dtype: PAK_DTYPE.u8, data: encodeImageEntry(img, PSM.PSM_8888) });
 }
 
 const pak = pack(blobs);
-await Bun.write(DIST + appName + ".dcpak", pak);
-console.log(`  dcpak: ${blobs.length} entries, ${pak.length} bytes -> dist/${appName}.dcpak`);
+await Bun.write(DIST + appName + ".pak", pak);
+console.log(`  pak: ${blobs.length} entries, ${pak.length} bytes -> dist/${appName}.pak`);
 
 // ---------------------------------------------------------------------------
 // pass 2 — bundle (served from the pass-1 cache)

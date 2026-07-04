@@ -309,9 +309,9 @@ pub mod draw_op {
     pub const TRI: u32 = 7;
 }
 
-/// .dcpak container constants (byte-compatible with dreamcart's format;
-/// copied from framework/bake/dcpak.ts + docs/dcpak-format.md).
-pub mod dcpak {
+/// .pak container constants (byte-compatible with dreamcart's format;
+/// copied from framework/bake/pak.ts + docs/pak-format.md).
+pub mod pak {
     pub const MAGIC: u32 = 0x4b504344; // 'DCPK' LE
     pub const VERSION: u16 = 1;
     pub const HEADER_SIZE: usize = 32;

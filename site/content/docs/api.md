@@ -23,7 +23,7 @@ The runtime entry point: mount an app, tear it down, and reach the lower-level h
 function mount(code: () => unknown, opts?: MountOptions): () => void
 ```
 
-App-level entry point for demo/application bundles. Resolves ops from `opts.ops` or `globalThis.ui`, loads `opts.dcpak` (when given), uploads the pack's images on injected hosts, feeds the default generated style table (`opts.styles` ?? `STYLE_IDS`), and mounts `code`. Returns a disposer that unmounts and destroys the app subtree. Throws if neither `opts.ops` nor `globalThis.ui` is present.
+App-level entry point for demo/application bundles. Resolves ops from `opts.ops` or `globalThis.ui`, loads `opts.pak` (when given), uploads the pack's images on injected hosts, feeds the default generated style table (`opts.styles` ?? `STYLE_IDS`), and mounts `code`. Returns a disposer that unmounts and destroys the app subtree. Throws if neither `opts.ops` nor `globalThis.ui` is present.
 
 ### `render`
 
@@ -41,7 +41,7 @@ Lower-level mount: detects and installs the host, wires the style resolver, regi
 | --- | --- | --- |
 | `ops` | `HostOps` | web/wasm/test hosts inject their op surface here; omit on PSP (`globalThis.ui`). |
 | `styles` | `Record<string, number>` | class-literal → styleId table (`styles.generated.ts`). |
-| `dcpak` | `ArrayBuffer` | app pack; defaults to `globalThis.__dcpak` when present. |
+| `pak` | `ArrayBuffer` | app pack; defaults to `globalThis.__pak` when present. |
 
 ### Host helpers
 
@@ -122,16 +122,16 @@ function resolveStyle(cls: string): number | undefined
 
 `registerStyles` loads a class-literal → styleId table (the compiler's `STYLE_IDS`); it also registers a token-sorted alias so `"a b"` resolves the id for `"b a"`. `resolveStyle` returns the styleId for a class string, or `undefined` if the compiler never saw it (or the token reordering is ambiguous). See [Styling](/docs/styling/) and [Tailwind subset](/docs/tailwind/).
 
-### Data pack (dcpak)
+### Data pack (pak)
 
 ```ts
-function dcpakEntries(prefix?: string): string[]
-function dcpakGet(key: string): Uint8Array
+function pakEntries(prefix?: string): string[]
+function pakGet(key: string): Uint8Array
 function loadPack(ab: ArrayBuffer): void
 function resetPack(): void
 ```
 
-`dcpakEntries` lists entry keys starting with `prefix` (default: all keys), sorted. `dcpakGet` returns a fresh copy of a blob's bytes, throwing on a missing key. `loadPack` explicitly loads a pack (web host after fetch, or tests), replacing any prior. `resetPack` drops the cached parsed pack. See [Build pipeline](/docs/build-pipeline/).
+`pakEntries` lists entry keys starting with `prefix` (default: all keys), sorted. `pakGet` returns a fresh copy of a blob's bytes, throwing on a missing key. `loadPack` explicitly loads a pack (web host after fetch, or tests), replacing any prior. `resetPack` drops the cached parsed pack. See [Build pipeline](/docs/build-pipeline/).
 
 ### `NodeMirror`
 

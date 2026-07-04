@@ -54,7 +54,7 @@ export interface HostOps {
   cancelAnim(animId: number): void;
   /** 0 clears focus. Applies the `focus:` style variant natively. */
   setFocus(idOr0: number): void;
-  /** web/test hosts only — on PSP the native bin feeds core from the dcpak. */
+  /** web/test hosts only — on PSP the native bin feeds core from the pak. */
   loadStyles?(buf: Uint8Array): void;
   /** web/test hosts only — one call per baked font atlas blob. */
   loadFontAtlas?(buf: Uint8Array): void;
@@ -80,7 +80,7 @@ let current: Host | null = null;
  * non-strict — `__textures` is set only by native ffi.rs, never by web/wasm/
  * test hosts, so those keep the strict injected contract. This also routes
  * render() into its PSP branch (bind native texture handles, skip the
- * loadStyles/loadFontAtlas re-feed the native dcpak walker already did).
+ * loadStyles/loadFontAtlas re-feed the native pak walker already did).
  */
 export function detectHost(injected?: HostOps): Host {
   const native = (globalThis as { ui?: HostOps & { __textures?: unknown } }).ui;

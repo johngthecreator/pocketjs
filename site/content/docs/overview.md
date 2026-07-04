@@ -96,7 +96,7 @@ export default function App() {
 ```
 
 The mount entry is ordinary bootstrap code — the framework detects the host,
-loads the generated style table and dcpak assets, and wires up the frame
+loads the generated style table and pak assets, and wires up the frame
 callback:
 
 ```tsx
@@ -110,7 +110,7 @@ mount(() => <App />);
 Build it with Bun:
 
 ```sh
-bun scripts/build.ts hero      # -> dist/hero.js + dist/hero.dcpak
+bun scripts/build.ts hero      # -> dist/hero.js + dist/hero.pak
 ```
 
 A few things worth noticing in that example:

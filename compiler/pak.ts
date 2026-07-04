@@ -1,7 +1,7 @@
-// compiler/dcpak.ts — standalone .dcpak writer (dreamcart-container-compatible).
+// compiler/pak.ts — standalone .pak writer (dreamcart-container-compatible).
 //
-// Byte-for-byte the dreamcart format (docs/dcpak-format.md v1; constants
-// pinned in spec/spec.ts DCPAK_*), so existing tooling opens PocketJS packs.
+// Byte-for-byte the dreamcart format (docs/pak-format.md v1; constants
+// pinned in spec/spec.ts PAK_*), so existing tooling opens PocketJS packs.
 // PocketJS entries:
 //   ui:styles        styles.bin (compiler/tailwind.ts)
 //   ui:font.<slot>   one FONT ATLAS blob per baked slot (compiler/bake-font.ts)
@@ -22,49 +22,49 @@
 
 import { inflateSync } from "node:zlib";
 import {
-  DCPAK_ALIGN,
-  DCPAK_DTYPE,
-  DCPAK_ENTRY_SIZE,
-  DCPAK_FNV1A_OFFSET_BASIS,
-  DCPAK_FNV1A_PRIME,
-  DCPAK_HEADER_SIZE,
-  DCPAK_MAGIC,
-  DCPAK_VERSION,
+  PAK_ALIGN,
+  PAK_DTYPE,
+  PAK_ENTRY_SIZE,
+  PAK_FNV1A_OFFSET_BASIS,
+  PAK_FNV1A_PRIME,
+  PAK_HEADER_SIZE,
+  PAK_MAGIC,
+  PAK_VERSION,
   PSM,
   TEX_MAX_DIM,
 } from "../spec/spec.ts";
 
 export interface PakBlob {
   key: string;
-  /** DCPAK_DTYPE code (advisory element type). */
+  /** PAK_DTYPE code (advisory element type). */
   dtype: number;
   data: Uint8Array;
 }
 
 export function fnv1a(s: string): number {
-  let h = DCPAK_FNV1A_OFFSET_BASIS;
+  let h = PAK_FNV1A_OFFSET_BASIS;
   for (let i = 0; i < s.length; i++) {
     h ^= s.charCodeAt(i);
-    h = Math.imul(h, DCPAK_FNV1A_PRIME);
+    h = Math.imul(h, PAK_FNV1A_PRIME);
   }
   return h >>> 0;
 }
 
-const align = (n: number): number => (n + (DCPAK_ALIGN - 1)) & ~(DCPAK_ALIGN - 1);
+const align = (n: number): number => (n + (PAK_ALIGN - 1)) & ~(PAK_ALIGN - 1);
 
-/** Pack blobs into .dcpak bytes. Entries sorted by key; blobs 16-aligned. */
+/** Pack blobs into .pak bytes. Entries sorted by key; blobs 16-aligned. */
 export function pack(blobsIn: PakBlob[]): Uint8Array {
   const blobs = [...blobsIn].sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
   const seen = new Set<string>();
   for (const b of blobs) {
-    if (seen.has(b.key)) throw new Error("dcpak: duplicate key " + b.key);
+    if (seen.has(b.key)) throw new Error("pak: duplicate key " + b.key);
     seen.add(b.key);
   }
 
   const enc = new TextEncoder();
   const names = blobs.map((b) => enc.encode(b.key));
-  const dirOffset = DCPAK_HEADER_SIZE;
-  const namesOffset = dirOffset + blobs.length * DCPAK_ENTRY_SIZE;
+  const dirOffset = PAK_HEADER_SIZE;
+  const namesOffset = dirOffset + blobs.length * PAK_ENTRY_SIZE;
   let nameCursor = 0;
   const nameOffsets = names.map((n) => {
     const o = nameCursor;
@@ -81,8 +81,8 @@ export function pack(blobsIn: PakBlob[]): Uint8Array {
 
   const out = new Uint8Array(blobCursor);
   const dv = new DataView(out.buffer);
-  dv.setUint32(0, DCPAK_MAGIC, true);
-  dv.setUint16(4, DCPAK_VERSION, true);
+  dv.setUint32(0, PAK_MAGIC, true);
+  dv.setUint16(4, PAK_VERSION, true);
   dv.setUint16(6, 0, true);
   dv.setUint32(8, blobs.length, true);
   dv.setUint32(12, dirOffset, true);
@@ -92,7 +92,7 @@ export function pack(blobsIn: PakBlob[]): Uint8Array {
   dv.setUint32(28, 0, true);
 
   for (let i = 0; i < blobs.length; i++) {
-    const e = dirOffset + i * DCPAK_ENTRY_SIZE;
+    const e = dirOffset + i * PAK_ENTRY_SIZE;
     dv.setUint32(e + 0, fnv1a(blobs[i].key), true);
     dv.setUint32(e + 4, blobOffsets[i], true);
     dv.setUint32(e + 8, blobs[i].data.length, true);
@@ -107,18 +107,18 @@ export function pack(blobsIn: PakBlob[]): Uint8Array {
   return out;
 }
 
-/** Parse .dcpak bytes back into blobs (round-trips pack(); build-side only). */
+/** Parse .pak bytes back into blobs (round-trips pack(); build-side only). */
 export function unpack(file: Uint8Array): PakBlob[] {
   const dv = new DataView(file.buffer, file.byteOffset, file.byteLength);
-  if (dv.getUint32(0, true) !== DCPAK_MAGIC) throw new Error("dcpak: bad magic");
-  if (dv.getUint16(4, true) !== DCPAK_VERSION) throw new Error("dcpak: unsupported version");
+  if (dv.getUint32(0, true) !== PAK_MAGIC) throw new Error("pak: bad magic");
+  if (dv.getUint16(4, true) !== PAK_VERSION) throw new Error("pak: unsupported version");
   const entryCount = dv.getUint32(8, true);
   const dirOff = dv.getUint32(12, true);
   const namesOff = dv.getUint32(16, true);
   const dec = new TextDecoder();
   const blobs: PakBlob[] = [];
   for (let i = 0; i < entryCount; i++) {
-    const e = dirOff + i * DCPAK_ENTRY_SIZE;
+    const e = dirOff + i * PAK_ENTRY_SIZE;
     const blobOff = dv.getUint32(e + 4, true);
     const byteLen = dv.getUint32(e + 8, true);
     const nameOff = dv.getUint32(e + 12, true);
@@ -145,9 +145,9 @@ export function encodeImageEntry(img: DecodedImage, psm: number = PSM.PSM_8888):
   const { width: w, height: h, rgba } = img;
   const pow2 = (n: number) => n > 0 && (n & (n - 1)) === 0;
   if (!pow2(w) || !pow2(h) || w > TEX_MAX_DIM || h > TEX_MAX_DIM) {
-    throw new Error(`dcpak image: dims must be pow2 <= ${TEX_MAX_DIM}, got ${w}x${h}`);
+    throw new Error(`pak image: dims must be pow2 <= ${TEX_MAX_DIM}, got ${w}x${h}`);
   }
-  if (rgba.length !== w * h * 4) throw new Error("dcpak image: rgba length mismatch");
+  if (rgba.length !== w * h * 4) throw new Error("pak image: rgba length mismatch");
   const bpp = psm === PSM.PSM_8888 ? 4 : 2;
   const out = new Uint8Array(8 + w * h * bpp);
   const dv = new DataView(out.buffer);
@@ -165,7 +165,7 @@ export function encodeImageEntry(img: DecodedImage, psm: number = PSM.PSM_8888):
       dv.setUint16(8 + i * 2, (a << 12) | (b << 8) | (g << 4) | r, true);
     }
   } else {
-    throw new Error(`dcpak image: unsupported psm ${psm}`);
+    throw new Error(`pak image: unsupported psm ${psm}`);
   }
   return out;
 }
@@ -284,4 +284,4 @@ export function decodePng(bytes: Uint8Array): DecodedImage {
 export const KEY_STYLES = "ui:styles";
 export const keyFont = (slot: number): string => `ui:font.${slot}`;
 export const keyImage = (name: string): string => `ui:img.${name}`;
-export { DCPAK_DTYPE };
+export { PAK_DTYPE };

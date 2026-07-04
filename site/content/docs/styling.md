@@ -3,7 +3,7 @@
 PocketJS styling is a **build-time Tailwind subset**. The classes you write are
 not CSS: at build time the compiler parses each class literal, turns it into a
 binary style record, and packs the whole table into `styles.bin` inside your
-app's `.dcpak`. At runtime the renderer looks a class attribute up **verbatim**,
+app's `.pak`. At runtime the renderer looks a class attribute up **verbatim**,
 gets back a numeric `styleId`, and hands that to the Rust core via `setStyle`.
 
 There is **zero runtime CSS**: no CSS parser, no cascade, no string matching on
@@ -29,7 +29,7 @@ The Tailwind compiler runs in pass 1 of `bun scripts/build.ts <app>` (see
    module (`STYLE_IDS`: the class-literal → `styleId` map, plus the font-slot
    metadata) that the renderer imports.
 
-`styles.bin` is shipped in the `.dcpak`. On PSP the native dcpak walker feeds it
+`styles.bin` is shipped in the `.pak`. On PSP the native pak walker feeds it
 straight into the core; on the browser and headless Bun hosts it is loaded
 through the `loadStyles` op ([/docs/native-contract/](/docs/native-contract/)).
 

@@ -42,7 +42,7 @@ const PACKAGE_NAME = "@pocketjs/framework";
 const CACHE_DIR = new URL("../.cache/transforms/", import.meta.url).pathname;
 /** Bump to invalidate every cached transform (changes to this file's
  *  collector/lints/options — dependency versions are hashed separately). */
-const CACHE_VERSION = "5";
+const CACHE_VERSION = "7";
 
 const BANNED_SOLID_IMPORTS = new Set(["createResource", "useTransition", "startTransition"]);
 
@@ -220,11 +220,13 @@ export async function transformFile(path: string, src: string): Promise<Transfor
   const res = await transformAsync(src, {
     filename: path,
     // presets run last-to-first: preset-typescript strips types first, then
-    // babel-preset-solid compiles the (still present, isTSX) JSX [R].
+    // babel-preset-solid compiles JSX [R]. parserOpts enables JSX parsing
+    // without the removed Babel 8 isTSX/allExtensions preset options.
     presets: [
       [solidPreset, { generate: "universal", moduleName: RENDERER_PATH }],
-      [tsPreset, { isTSX: true, allExtensions: true }],
+      [tsPreset, {}],
     ],
+    parserOpts: { plugins: ["jsx"] },
     plugins: [makeCollector(collected)],
     babelrc: false,
     configFile: false,

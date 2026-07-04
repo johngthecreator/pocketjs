@@ -89,7 +89,7 @@ export const SIZE_FULL = -1;
 //   cancelAnim(animId)
 //   setFocus(idOr0)                        [applies focus: variant natively]
 //   loadStyles(buf) / loadFontAtlas(buf)   [web/test hosts only; PSP feeds core
-//                                           natively from the dcpak]
+//                                           natively from the pak]
 //   measureText(str, fontSlot) -> width:f32
 
 export const OP = {
@@ -622,28 +622,28 @@ export const DRAW_OP = {
 } as const;
 
 // ---------------------------------------------------------------------------
-// DCPAK container constants
+// PAK container constants
 // ---------------------------------------------------------------------------
-// PocketJS packs (styles.bin, font atlases, images) reuse the dreamcart .dcpak
+// PocketJS packs (styles.bin, font atlases, images) reuse the dreamcart .pak
 // container byte-for-byte so existing tooling can open them. Values copied
-// from dreamcart framework/bake/dcpak.ts + docs/dcpak-format.md (v1).
+// from dreamcart framework/bake/pak.ts + docs/pak-format.md (v1).
 // Header: magic u32, version u16, flags u16, entryCount u32, dirOffset u32,
 // namesOffset u32, blobsOffset u32 (16-aligned), fileSize u32, reserved u32.
 // Entry: keyHash(fnv1a) u32, blobOff u32, byteLen u32, nameOff u32,
 // nameLen u16, dtype u8, reserved u8, reserved u32. Entries sorted by key;
 // blobs 16-byte aligned.
 
-export const DCPAK_MAGIC = 0x4b504344; // 'DCPK' LE
-export const DCPAK_VERSION = 1;
-export const DCPAK_HEADER_SIZE = 32;
-export const DCPAK_ENTRY_SIZE = 24;
-export const DCPAK_ALIGN = 16;
+export const PAK_MAGIC = 0x4b504344; // 'DCPK' LE
+export const PAK_VERSION = 1;
+export const PAK_HEADER_SIZE = 32;
+export const PAK_ENTRY_SIZE = 24;
+export const PAK_ALIGN = 16;
 /** FNV-1a 32-bit params for entry keyHash (h ^= byte; h *= prime). */
-export const DCPAK_FNV1A_OFFSET_BASIS = 0x811c9dc5;
-export const DCPAK_FNV1A_PRIME = 0x01000193;
+export const PAK_FNV1A_OFFSET_BASIS = 0x811c9dc5;
+export const PAK_FNV1A_PRIME = 0x01000193;
 
-/** dcpak dtype codes (advisory element type of a blob). */
-export const DCPAK_DTYPE = {
+/** pak dtype codes (advisory element type of a blob). */
+export const PAK_DTYPE = {
   u8: 0, i8: 1, u16: 2, i16: 3, u32: 4, i32: 5, f32: 6, f64: 7,
 } as const;
 

@@ -10,8 +10,8 @@
 //! tree so reconciler reads never cross this boundary.
 //!
 //! Extra (not a spec op): `ui.__textures` — a plain JS object mapping the
-//! dcpak image names (`ui:img.<name>` -> `<name>`) to their upload_texture
-//! handles, built at boot from dcpak::feed's table. src/index.ts's PSP branch
+//! pak image names (`ui:img.<name>` -> `<name>`) to their upload_texture
+//! handles, built at boot from pak::feed's table. src/index.ts's PSP branch
 //! walks it and calls renderer.registerTexture(name, handle) so JSX
 //! `src="<name>"` resolves.
 
@@ -277,7 +277,7 @@ unsafe extern "C" fn js_set_focus(
     JS_UNDEFINED
 }
 
-/// Not used on PSP (dcpak.rs feeds the core natively before eval), but
+/// Not used on PSP (pak.rs feeds the core natively before eval), but
 /// registered so the full HostOps surface exists. Returns bool.
 unsafe extern "C" fn js_load_styles(
     ctx: *mut JSContext,
@@ -350,7 +350,7 @@ unsafe fn add_fn(
 }
 
 /// Install `globalThis.ui` (full HostOps surface + `__textures`).
-/// `textures` comes from dcpak::feed.
+/// `textures` comes from pak::feed.
 pub unsafe fn register(ctx: *mut JSContext, global: JSValue, textures: &[(String, i32)]) {
     let ui_obj = JS_NewObject(ctx);
 
@@ -371,7 +371,7 @@ pub unsafe fn register(ctx: *mut JSContext, global: JSValue, textures: &[(String
     add_fn(ctx, ui_obj, b"loadFontAtlas\0", js_load_font_atlas, 1);
     add_fn(ctx, ui_obj, b"measureText\0", js_measure_text, 2);
 
-    // ui.__textures: dcpak image name -> texture handle (see module docs).
+    // ui.__textures: pak image name -> texture handle (see module docs).
     let tex_obj = JS_NewObject(ctx);
     for (name, handle) in textures {
         let mut cname: Vec<u8> = Vec::with_capacity(name.len() + 1);

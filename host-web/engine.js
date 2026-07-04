@@ -2,7 +2,7 @@
 //
 // Loads pocketjs.wasm (core + software rasterizer), installs the HostOps
 // binding (wasm-ops.js — shared with test/golden.ts) as globalThis.ui,
-// installs the demo's .dcpak as globalThis.__dcpak, evals the demo bundle
+// installs the demo's .pak as globalThis.__pak, evals the demo bundle
 // (which mounts the app and installs globalThis.frame), then drives a
 // fixed-timestep 60 Hz loop: frame(buttons) -> ui_tick -> ui_render ->
 // putImageData onto a 480x272 canvas (CSS-scaled, pixelated).
@@ -155,7 +155,7 @@ export async function mount(theCanvas, opts = {}) {
 }
 
 /**
- * Load (or reload) a demo: fresh core, __dcpak + globalThis.ui BEFORE eval,
+ * Load (or reload) a demo: fresh core, __pak + globalThis.ui BEFORE eval,
  * fresh function scope per reload, then start the loop. Returns null on
  * success, the error otherwise.
  */
@@ -169,8 +169,8 @@ export async function load(name) {
   globalThis.ui = wasm.ops;
   globalThis.frame = undefined;
   try {
-    const pak = await fetch("dist/" + name + ".dcpak");
-    globalThis.__dcpak = pak.ok ? await pak.arrayBuffer() : undefined;
+    const pak = await fetch("dist/" + name + ".pak");
+    globalThis.__pak = pak.ok ? await pak.arrayBuffer() : undefined;
     const srcRes = await fetch("dist/" + name + ".js");
     if (!srcRes.ok) throw new Error("dist/" + name + ".js not found — run: bun scripts/build.ts " + name);
     const src = await srcRes.text();

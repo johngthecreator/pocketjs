@@ -98,7 +98,7 @@ phantom gap where the hidden element used to be.
 
 `Image` draws a baked texture. Its `src` is a **name**, not a path or URL: at
 build time the pipeline scans your `src` strings, packs the referenced images
-into the app's `.dcpak`, and the renderer resolves the name to the uploaded
+into the app's `.pak`, and the renderer resolves the name to the uploaded
 texture at runtime.
 
 ```tsx
@@ -122,7 +122,7 @@ const frame = createSpriteAnimation(
 ```
 
 `Image` takes no children. See the [Build pipeline](/docs/build-pipeline/) for
-how images become dcpak textures.
+how images become pak textures.
 
 ## Props
 

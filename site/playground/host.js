@@ -4,8 +4,8 @@
 // 480x272 canvas, and drives the fixed-timestep 60 Hz loop (dt clamp 250 ms,
 // max 4 catch-up steps — the proven dreamcart driver shape). Two ways to run an
 // app on it:
-//   • runIIFE(jsText, dcpak)  — a prebuilt `bun scripts/build.ts` bundle
-//     (globalThis.ui/__dcpak in, globalThis.frame out). Used by the homepage.
+//   • runIIFE(jsText, pak)  — a prebuilt `bun scripts/build.ts` bundle
+//     (globalThis.ui/__pak in, globalThis.frame out). Used by the homepage.
 //   • reset() → (caller imports an ES module that calls mount()) → begin()
 //     — the live-compiled playground path.
 // Both end up driving the same globalThis.frame(buttons) contract.
@@ -95,7 +95,7 @@ export class PocketHost {
     this.wasm.init();
     globalThis.ui = this.wasm.ops;
     globalThis.frame = undefined;
-    globalThis.__dcpak = undefined;
+    globalThis.__pak = undefined;
   }
 
   /** After the caller has mounted an app (globalThis.frame installed), start the
@@ -112,10 +112,10 @@ export class PocketHost {
     this._start();
   }
 
-  /** Run a prebuilt IIFE bundle (dist/<app>.js + <app>.dcpak). */
-  runIIFE(jsText, dcpakBuffer) {
+  /** Run a prebuilt IIFE bundle (dist/<app>.js + <app>.pak). */
+  runIIFE(jsText, pakBuffer) {
     this.reset();
-    globalThis.__dcpak = dcpakBuffer;
+    globalThis.__pak = pakBuffer;
     // Fresh function scope per load so top-level vars can't collide.
     new Function(jsText + "\n//# sourceURL=pocketjs-demo.js")();
     this.begin();

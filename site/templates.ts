@@ -4,6 +4,11 @@
 
 const YEAR = 2026;
 const GH = "https://github.com/pocket-stack/pocketjs";
+export const SITE_URL = "https://pocketjs.dev";
+export const SITE_TITLE = "PocketJS — Bare Metal Modern Web";
+export const SITE_DESC =
+  "PocketJS makes browser-style UI practical off the browser: familiar JSX, Tailwind utilities and native rendering on PSP-class hardware.";
+export const OG_IMAGE_URL = `${SITE_URL}/og-image.png`;
 
 export interface PageOpts {
   title: string | null; // null uses the bare wordmark (homepage)
@@ -12,6 +17,8 @@ export interface PageOpts {
   bodyClass?: string;
   head?: string;
   scripts?: string[];
+  path?: string;
+  description?: string;
 }
 
 export const LOGO = `<svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true">
@@ -27,19 +34,20 @@ export const LOGO = `<svg viewBox="0 0 32 32" width="26" height="26" aria-hidden
 </svg>`;
 
 function header(active: string): string {
-  const on = "text-white bg-surface-2";
+  const ghIcon =
+    '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.7.5.5 5.7.5 12c0 5.1 3.3 9.4 7.9 10.9.6.1.8-.3.8-.6v-2c-3.2.7-3.9-1.5-3.9-1.5-.5-1.3-1.3-1.7-1.3-1.7-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.7 1.3 3.4 1 .1-.8.4-1.3.8-1.6-2.6-.3-5.3-1.3-5.3-5.8 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17 4.7 18 5 18 5c.6 1.6.2 2.8.1 3.1.8.8 1.2 1.8 1.2 3.1 0 4.5-2.7 5.5-5.3 5.8.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6 4.6-1.5 7.9-5.8 7.9-10.9C23.5 5.7 18.3.5 12 .5z"/></svg>';
   const link = (href: string, label: string, key: string, ext = false) =>
     `<a href="${href}"${ext ? ' target="_blank" rel="noreferrer"' : ""} ` +
-    `class="px-3 py-1.5 rounded-md text-slate-300 hover:text-white transition-colors ${active === key ? on : ""}">${label}</a>`;
-  return `<header class="sticky top-0 z-50 border-b border-line/70 bg-ink/75 backdrop-blur-md">
-  <div class="mx-auto flex h-14 max-w-6xl items-center justify-between px-5">
-    <a href="/" class="flex items-center gap-2 font-semibold tracking-tight text-slate-100" aria-label="PocketJS home">
+    `class="site-nav__link ${active === key ? "on" : ""}">${label}</a>`;
+  return `<header class="site-nav">
+  <div class="site-nav__in">
+    <a href="/" class="site-brand" aria-label="PocketJS home">
       ${LOGO}<span class="text-[17px]">PocketJS</span>
     </a>
-    <nav class="flex items-center gap-1 text-sm font-medium">
+    <nav class="site-nav__links" aria-label="Primary">
       ${link("/docs/overview/", "Docs", "docs")}
       ${link("/playground/", "Playground", "playground")}
-      ${link(GH, "GitHub", "github", true)}
+      <a href="${GH}" target="_blank" rel="noreferrer" class="site-nav__link site-nav__gh">${ghIcon}<span class="site-nav__ghlabel">GitHub</span></a>
     </nav>
   </div>
 </header>`;
@@ -87,9 +95,19 @@ const footer = `<footer class="mt-24 border-t border-line/70 bg-ink-2/60">
 </footer>`;
 
 export function renderPage(o: PageOpts): string {
-  const fullTitle = o.title ? `${o.title} · PocketJS` : "PocketJS — Bare Metal Modern Web";
-  const desc =
-    "PocketJS builds Solid and Tailwind interfaces for a 32 MB Sony PSP, with native flexbox, sub-pixel text, animation and deterministic rendering.";
+  const fullTitle = o.title ? `${o.title} · PocketJS` : SITE_TITLE;
+  const desc = o.description ?? SITE_DESC;
+  const canonical = `${SITE_URL}${o.path ?? "/"}`;
+  const jsonLd = JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "SoftwareSourceCode",
+    name: "PocketJS",
+    description: SITE_DESC,
+    url: SITE_URL,
+    codeRepository: GH,
+    programmingLanguage: ["TypeScript", "JavaScript", "Rust"],
+    runtimePlatform: ["Sony PSP", "PPSSPP", "WebAssembly", "Bun"],
+  });
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -97,12 +115,25 @@ export function renderPage(o: PageOpts): string {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${fullTitle}</title>
 <meta name="description" content="${desc}">
+<meta name="robots" content="index,follow">
+<link rel="canonical" href="${canonical}">
 <meta property="og:title" content="${fullTitle}">
 <meta property="og:description" content="${desc}">
 <meta property="og:type" content="website">
+<meta property="og:site_name" content="PocketJS">
+<meta property="og:url" content="${canonical}">
+<meta property="og:image" content="${OG_IMAGE_URL}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="PocketJS — Bare Metal Modern Web">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${fullTitle}">
+<meta name="twitter:description" content="${desc}">
+<meta name="twitter:image" content="${OG_IMAGE_URL}">
 <meta name="theme-color" content="#05070d">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/assets/site.css">
+<script type="application/ld+json">${jsonLd}</script>
 ${o.head ?? ""}
 </head>
 <body class="min-h-screen ${o.bodyClass ?? ""}">

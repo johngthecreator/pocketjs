@@ -11,7 +11,7 @@
     "./input": "./src/input-api.ts",
     "./reactivity": "./src/reactivity.ts"
   },
-  "description": "JSX UI stack for the Sony PSP (and beyond): Solid universal renderer over a no_std Rust core. See DESIGN.md.",
+  "description": "Browser-style UI off the browser: familiar JSX, Tailwind utilities and native rendering on PSP-class hardware.",
   "scripts": {
     "build": "bun scripts/build.ts",
     "psp": "bun scripts/psp.ts",

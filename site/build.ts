@@ -18,7 +18,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync, cpSync
 import { dirname, join } from "node:path";
 import { marked } from "marked";
 import { createHighlighter } from "shiki";
-import { renderPage } from "./templates.ts";
+import { OG_IMAGE_URL, SITE_DESC, SITE_TITLE, SITE_URL, renderPage } from "./templates.ts";
 import { DOC_NAV } from "./nav.ts";
 
 const ROOT = new URL("..", import.meta.url).pathname; // repo root
@@ -162,7 +162,9 @@ async function main() {
 
   // 5. static assets + Tailwind CSS (compiled AFTER pages exist so the content
   //    scan sees every class; we render pages to a temp first, then compile).
-  if (existsSync(SITE + "assets/favicon.svg")) copy(SITE + "assets/favicon.svg", "favicon.svg");
+  for (const asset of ["favicon.svg", "og-image.svg", "og-image.png"]) {
+    if (existsSync(SITE + "assets/" + asset)) copy(SITE + "assets/" + asset, asset);
+  }
 
   // 6. playground page
   write("playground/index.html", renderPage({
@@ -172,6 +174,7 @@ async function main() {
     bodyClass: "pg-page",
     head: IMPORT_MAP + '\n<link rel="stylesheet" href="/assets/screen.css">',
     scripts: ['<script type="module" src="/pg/playground.bundle.js"></script>'],
+    path: "/playground/",
   }));
   copy(SITE + "assets/screen.css", "assets/screen.css");
 
@@ -193,6 +196,7 @@ async function main() {
     bodyClass: "",
     head: "",
     scripts: [],
+    path: "/404.html",
     body: `<section class="mx-auto flex min-h-[60vh] max-w-xl flex-col items-center justify-center px-5 py-24 text-center">
       <div class="font-mono text-6xl font-bold text-gradient">404</div>
       <h1 class="mt-4 text-2xl font-bold text-slate-100">This screen doesn't exist.</h1>
@@ -209,24 +213,46 @@ async function main() {
 
 // The homepage is a standalone document (cinematic design owns its own header +
 // footer + CSS). site/home.html holds the body; site/assets/home.css the styles.
-const HOME_DESC =
-  "PocketJS makes browser-style UI practical off the browser: familiar JSX, Tailwind utilities and native rendering on PSP-class hardware.";
+const HOME_DESC = SITE_DESC;
 function renderHome(): string {
   const body = readFileSync(SITE + "home.html", "utf8");
+  const jsonLd = JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "SoftwareSourceCode",
+    name: "PocketJS",
+    description: SITE_DESC,
+    url: SITE_URL,
+    codeRepository: "https://github.com/pocket-stack/pocketjs",
+    programmingLanguage: ["TypeScript", "JavaScript", "Rust"],
+    runtimePlatform: ["Sony PSP", "PPSSPP", "WebAssembly", "Bun"],
+  });
   return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>PocketJS — Bare Metal Modern Web</title>
+<title>${SITE_TITLE}</title>
 <meta name="description" content="${HOME_DESC}">
-<meta property="og:title" content="PocketJS — Bare Metal Modern Web">
+<meta name="robots" content="index,follow">
+<link rel="canonical" href="${SITE_URL}/">
+<meta property="og:title" content="${SITE_TITLE}">
 <meta property="og:description" content="${HOME_DESC}">
 <meta property="og:type" content="website">
+<meta property="og:site_name" content="PocketJS">
+<meta property="og:url" content="${SITE_URL}/">
+<meta property="og:image" content="${OG_IMAGE_URL}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="PocketJS — Bare Metal Modern Web">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${SITE_TITLE}">
+<meta name="twitter:description" content="${HOME_DESC}">
+<meta name="twitter:image" content="${OG_IMAGE_URL}">
 <meta name="theme-color" content="#05070d">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/assets/home.css">
 <link rel="stylesheet" href="/assets/screen.css">
+<script type="application/ld+json">${jsonLd}</script>
 </head>
 <body>
 ${body}
@@ -313,7 +339,7 @@ async function buildDocs() {
     const body =
       `<div class="doc-shell"><aside class="doc-nav">${sidebarFor(slug)}</aside>` +
       `<article class="doc-body" data-slug="${slug}"><div class="prose prose-invert max-w-none doc-content">${html}</div>${pager}</article></div>`;
-    write(`docs/${slug}/index.html`, renderPage({ title, active: "docs", body, bodyClass: "doc-page", head: IMPORT_MAP, scripts: [] }));
+    write(`docs/${slug}/index.html`, renderPage({ title, active: "docs", body, bodyClass: "doc-page", head: IMPORT_MAP, scripts: [], path: `/docs/${slug}/` }));
   }
   // /docs -> first doc
   write("docs/index.html", `<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=/docs/${allSlugs[0].slug}/">`);

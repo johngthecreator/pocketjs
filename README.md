@@ -4,10 +4,12 @@
 
 # PocketJS
 
-A JSX UI stack for the Sony PSP (and beyond): **Solid** (universal renderer) +
-a **build-time Tailwind-subset compiler** + **baked font atlases**, driving one
-`no_std` Rust core (flexbox layout, styling, animation, text, DrawList) that
-runs on real PSP hardware, PPSSPP, the browser (WASM) and headless Bun.
+PocketJS makes browser-style UI practical off the browser: familiar JSX,
+Tailwind utilities and native rendering on PSP-class hardware. Write standard
+Solid components, run them on QuickJS, and let PocketJS move layout, styling,
+text and animation into a tiny `no_std` Rust core.
+
+It runs on real PSP hardware, PPSSPP, the browser (WASM) and headless Bun.
 Full design + contracts: [DESIGN.md](./DESIGN.md).
 
 ## Quickstart

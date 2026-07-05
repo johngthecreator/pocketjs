@@ -51,17 +51,27 @@ fn main() {
     // empty -> main.rs defaults (16/32).
     let cap_start = env::var("POCKETJS_CAP_START").unwrap_or_default();
     let cap_n = env::var("POCKETJS_CAP_N").unwrap_or_default();
+    // Optional bench-only knobs. POCKETJS_ARENA_BYTES caps the single arena so
+    // scripts/bench-ppsspp.ts can scan minimum viable heap sizes; empty keeps
+    // the production "free memory minus margin" behavior. Bench runs can also
+    // skip raw frame dumps while still using the capture window to exit.
+    let arena_bytes = env::var("POCKETJS_ARENA_BYTES").unwrap_or_default();
+    let bench_dump_frames = env::var("POCKETJS_BENCH_DUMP_FRAMES").unwrap_or_default();
 
     println!("cargo:rustc-env=POCKETJS_APP={app}");
     println!("cargo:rustc-env=POCKETJS_CAPTURE_INPUT={capture_input}");
     println!("cargo:rustc-env=POCKETJS_TRACE={trace}");
     println!("cargo:rustc-env=POCKETJS_CAP_START={cap_start}");
     println!("cargo:rustc-env=POCKETJS_CAP_N={cap_n}");
+    println!("cargo:rustc-env=POCKETJS_ARENA_BYTES={arena_bytes}");
+    println!("cargo:rustc-env=POCKETJS_BENCH_DUMP_FRAMES={bench_dump_frames}");
     println!("cargo:rerun-if-env-changed=POCKETJS_APP");
     println!("cargo:rerun-if-env-changed=POCKETJS_CAPTURE_INPUT");
     println!("cargo:rerun-if-env-changed=POCKETJS_TRACE");
     println!("cargo:rerun-if-env-changed=POCKETJS_CAP_START");
     println!("cargo:rerun-if-env-changed=POCKETJS_CAP_N");
+    println!("cargo:rerun-if-env-changed=POCKETJS_ARENA_BYTES");
+    println!("cargo:rerun-if-env-changed=POCKETJS_BENCH_DUMP_FRAMES");
     if let Ok(entries) = fs::read_dir(dist) {
         for e in entries.flatten() {
             println!("cargo:rerun-if-changed={}", e.path().display());

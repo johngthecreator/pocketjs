@@ -144,6 +144,8 @@ const env = {
   POCKETJS_TRACE: process.env.POCKETJS_TRACE ?? "",
   POCKETJS_CAP_START: process.env.POCKETJS_CAP_START ?? "",
   POCKETJS_CAP_N: process.env.POCKETJS_CAP_N ?? "",
+  POCKETJS_ARENA_BYTES: process.env.POCKETJS_ARENA_BYTES ?? "",
+  POCKETJS_BENCH_DUMP_FRAMES: process.env.POCKETJS_BENCH_DUMP_FRAMES ?? "",
 };
 
 function outputProfile(args: string[]): string {

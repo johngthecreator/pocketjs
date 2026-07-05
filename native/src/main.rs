@@ -71,6 +71,8 @@ static POCKETJS_CAPTURE_INPUT: &str = env!("POCKETJS_CAPTURE_INPUT");
 static POCKETJS_CAP_START: &str = env!("POCKETJS_CAP_START");
 #[cfg(feature = "capture")]
 static POCKETJS_CAP_N: &str = env!("POCKETJS_CAP_N");
+#[cfg(feature = "bench")]
+static POCKETJS_BENCH_DUMP_FRAMES: &str = env!("POCKETJS_BENCH_DUMP_FRAMES");
 
 // libquickjs-sys omits JS_NewArrayBuffer + JS_ExecutePendingJob; the linked
 // QuickJS C library provides both (same local-extern pattern as dreamcart
@@ -301,8 +303,9 @@ unsafe fn bench_maybe_flush(frame_count: u32) {
         return;
     }
     let frames = BENCH.frames as u64;
+    let arena_stats = arena::stats();
     let line = alloc::format!(
-        "{{\"app\":\"{}\",\"frames\":{},\"window_start\":{},\"window_n\":{},\"eval_us\":{},\"boot_to_eval_begin_us\":{},\"boot_to_frame0_us\":{},\"avg_js_us\":{},\"avg_jobs_us\":{},\"avg_tick_us\":{},\"avg_draw_us\":{},\"avg_render_us\":{},\"avg_work_us\":{},\"max_work_us\":{},\"bundle_bytes\":{},\"pak_bytes\":{}}}\n",
+        "{{\"app\":\"{}\",\"frames\":{},\"window_start\":{},\"window_n\":{},\"eval_us\":{},\"boot_to_eval_begin_us\":{},\"boot_to_frame0_us\":{},\"avg_js_us\":{},\"avg_jobs_us\":{},\"avg_tick_us\":{},\"avg_draw_us\":{},\"avg_render_us\":{},\"avg_work_us\":{},\"max_work_us\":{},\"bundle_bytes\":{},\"pak_bytes\":{},\"arena_capacity_bytes\":{},\"arena_bump_bytes\":{},\"arena_tail_free_bytes\":{},\"arena_init_free_bytes\":{},\"arena_configured_bytes\":{}}}\n",
         POCKETJS_APP_NAME,
         BENCH.frames,
         start,
@@ -319,6 +322,11 @@ unsafe fn bench_maybe_flush(frame_count: u32) {
         BENCH.max_work_us,
         APP_JS.len().saturating_sub(1),
         APP_PAK.len(),
+        arena_stats.capacity_bytes,
+        arena_stats.bump_bytes,
+        arena_stats.tail_free_bytes,
+        arena_stats.init_free_bytes,
+        arena_stats.configured_bytes,
     );
     bench_write(line.as_bytes());
 }
@@ -703,6 +711,13 @@ unsafe fn cap_dump_frame(frame_count: u32) {
         return;
     }
     let idx = frame_count - cap_start;
+    #[cfg(feature = "bench")]
+    if POCKETJS_BENCH_DUMP_FRAMES != "1" {
+        if idx + 1 == cap_n {
+            sys::sceKernelExitGame();
+        }
+        return;
+    }
     if idx == 0 {
         sys::sceIoMkdir(b"ms0:/dc_cap\0".as_ptr(), 0o777);
     }

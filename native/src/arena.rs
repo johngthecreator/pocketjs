@@ -40,9 +40,38 @@ const NCLASS: usize = 32;
 const MIN_SHIFT: usize = 4; // smallest class = 16 bytes (>= a free-list next ptr)
 
 static mut FREE: [*mut u8; NCLASS] = [ptr::null_mut(); NCLASS];
+static mut BASE: usize = 0;
 static mut BUMP: usize = 0;
 static mut BUMP_END: usize = 0;
+static mut INIT_FREE: usize = 0;
+static mut CONFIGURED_SIZE: usize = 0;
 static mut INITED: bool = false;
+
+#[derive(Clone, Copy)]
+pub struct Stats {
+    pub capacity_bytes: usize,
+    pub bump_bytes: usize,
+    pub tail_free_bytes: usize,
+    pub init_free_bytes: usize,
+    pub configured_bytes: usize,
+}
+
+fn parse_usize(s: &str) -> usize {
+    let bytes = s.as_bytes();
+    let mut out = 0usize;
+    let mut any = false;
+    let mut i = 0usize;
+    while i < bytes.len() {
+        let c = bytes[i];
+        if c < b'0' || c > b'9' {
+            break;
+        }
+        out = out.saturating_mul(10).saturating_add((c - b'0') as usize);
+        any = true;
+        i += 1;
+    }
+    if any { out } else { 0 }
+}
 
 /// Reserve the arena on first use: take most of the free partition in a single
 /// kernel block, leaving a 2 MB margin for late kernel allocations (utility
@@ -58,8 +87,15 @@ unsafe fn ensure_init() {
     }
     INITED = true;
     let free = sys::sceKernelMaxFreeMemSize() as usize;
+    INIT_FREE = free;
+    CONFIGURED_SIZE = parse_usize(env!("POCKETJS_ARENA_BYTES"));
     let margin = 2 * 1024 * 1024;
-    let size = if free > margin + 1024 * 1024 { free - margin } else { free / 2 };
+    let default_size = if free > margin + 1024 * 1024 { free - margin } else { free / 2 };
+    let size = if CONFIGURED_SIZE > 0 {
+        CONFIGURED_SIZE
+    } else {
+        default_size
+    };
     if size == 0 {
         return;
     }
@@ -76,7 +112,8 @@ unsafe fn ensure_init() {
     }
     let base = sys::sceKernelGetBlockHeadAddr(id) as usize;
     if base != 0 {
-        BUMP = (base + 15) & !15; // 16-align the bump start
+        BASE = (base + 15) & !15; // 16-align the bump start
+        BUMP = BASE;
         BUMP_END = base + size;
     }
 }
@@ -135,4 +172,17 @@ pub unsafe fn dealloc(p: *mut u8, size: usize, align: usize) {
     }
     *(p as *mut *mut u8) = FREE[c]; // push: store the old head in the freed block
     FREE[c] = p;
+}
+
+pub unsafe fn stats() -> Stats {
+    ensure_init();
+    let capacity = BUMP_END.saturating_sub(BASE);
+    let bump = BUMP.saturating_sub(BASE);
+    Stats {
+        capacity_bytes: capacity,
+        bump_bytes: bump,
+        tail_free_bytes: BUMP_END.saturating_sub(BUMP),
+        init_free_bytes: INIT_FREE,
+        configured_bytes: CONFIGURED_SIZE,
+    }
 }

@@ -1,17 +1,14 @@
+import { createEffect, createSignal, Match, Show, Switch } from "solid-js";
 import {
   ActionHandler,
-  Match,
   Modal,
   Screen,
-  Show,
-  Switch,
   Text,
   View,
   type NodeMirror,
 } from "@pocketjs/framework/components";
 import { animate } from "@pocketjs/framework/animation";
 import { BTN } from "@pocketjs/framework/input";
-import { createEffect, createSignal } from "@pocketjs/framework/reactivity";
 
 import Cards from "../cards/app.tsx";
 import Hero from "../hero/app.tsx";

@@ -45,7 +45,7 @@ Reading it top to bottom:
 
 1. **`app.tsx`** is ordinary Solid JSX — components from
    [`@pocketjs/framework/components`](/docs/components/), signals from
-   [`@pocketjs/framework/reactivity`](/docs/reactivity/), and `className` strings from
+   [`solid-js`](/docs/reactivity/), and `class` strings from
    the Tailwind subset.
 2. The **build** (`bun scripts/build.ts <app>`) runs `babel-preset-solid` in
    *universal* mode, compiles the class strings to a binary style table
@@ -238,9 +238,9 @@ pocketjs/
     anim.ts             animate() / spring() implementation
     primitives.ts       lower-case host tags → View/Text/Image primitives
     components.ts        ┐
-    reactivity.ts        ├ the public @pocketjs/framework/* subpath modules
-    animation.ts         │
-    hooks.ts, input-api.ts, overlay.ts, index.ts  ┘
+    animation.ts         ├ the public @pocketjs/framework/* subpath modules
+    lifecycle.ts         │   (Solid primitives are imported from solid-js)
+    input-api.ts, overlay.ts, index.ts  ┘
 
   compiler/
     solid-plugin.ts     babel transform + per-file class/codepoint collection

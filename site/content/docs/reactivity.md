@@ -6,9 +6,9 @@ DOM and no diffing pass. When a signal changes, Solid re-runs exactly the effect
 closures that read it, and those effects call native mutation ops that cross the
 FFI boundary into the Rust core.
 
-Everything in this section is re-exported from `solid-js` with no wrapping —
-PocketJS just curates *which* primitives are safe on the target hosts. Import
-them from `@pocketjs/framework/reactivity`:
+Import these primitives directly from `solid-js`; PocketJS does not provide a
+reactivity facade. The PocketJS compiler only checks that the Solid primitives
+you import can run on the target hosts:
 
 ```ts
 import {
@@ -19,7 +19,7 @@ import {
   onCleanup,
   batch,
   untrack,
-} from "@pocketjs/framework/reactivity";
+} from "solid-js";
 ```
 
 If you already know Solid, you know this API. If you're coming from React: these
@@ -53,7 +53,7 @@ scope, subscribe); call the setter to write.
 
 ```tsx
 import { View, Text } from "@pocketjs/framework/components";
-import { createSignal } from "@pocketjs/framework/reactivity";
+import { createSignal } from "solid-js";
 
 function Counter() {
   const [count, setCount] = createSignal(0);
@@ -91,7 +91,7 @@ of them changes. Use it for side effects — driving an animation, logging, impe
 work — not for producing values you render (use a signal or memo for that).
 
 ```tsx
-import { createSignal, createEffect } from "@pocketjs/framework/reactivity";
+import { createSignal, createEffect } from "solid-js";
 
 const [level, setLevel] = createSignal(0);
 
@@ -112,7 +112,7 @@ changes, and downstream readers only re-run when the memo's *result* actually
 changes. Reach for it when a derivation is expensive or read in several places.
 
 ```tsx
-import { createSignal, createMemo } from "@pocketjs/framework/reactivity";
+import { createSignal, createMemo } from "solid-js";
 
 const [items, setItems] = createSignal<string[]>([]);
 const total = createMemo(() => items().length);
@@ -129,7 +129,7 @@ underline sweep:
 ```tsx
 import { View, type NodeMirror } from "@pocketjs/framework/components";
 import { animate } from "@pocketjs/framework/animation";
-import { onMount } from "@pocketjs/framework/reactivity";
+import { onMount } from "solid-js";
 
 function Underline() {
   let underline: NodeMirror | undefined;
@@ -146,7 +146,7 @@ a component unmounting, or an effect re-running. Use it to release anything you
 acquired imperatively.
 
 ```tsx
-import { createEffect, onCleanup } from "@pocketjs/framework/reactivity";
+import { createEffect, onCleanup } from "solid-js";
 import { animate, cancelAnim } from "@pocketjs/framework/animation";
 
 createEffect(() => {
@@ -162,7 +162,7 @@ instead of after each write — useful when you update several related signals
 together.
 
 ```tsx
-import { batch } from "@pocketjs/framework/reactivity";
+import { batch } from "solid-js";
 
 batch(() => {
   setX(10);
@@ -174,7 +174,7 @@ batch(() => {
 memo won't re-run when that signal later changes.
 
 ```tsx
-import { untrack } from "@pocketjs/framework/reactivity";
+import { untrack } from "solid-js";
 
 createEffect(() => {
   const live = trigger();           // tracked: re-runs when trigger() changes

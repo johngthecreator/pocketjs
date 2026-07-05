@@ -11,9 +11,9 @@
 // Design notes: every class a FULL literal (per-track cover accent baked per
 // entry); text single-line.
 
+import { createSignal } from "solid-js";
 import { Text, View } from "@pocketjs/framework/components";
 import { onButtonPress, onFrame } from "@pocketjs/framework/lifecycle";
-import { createSignal } from "@pocketjs/framework/reactivity";
 import { BTN } from "@pocketjs/framework/input";
 
 interface Track {

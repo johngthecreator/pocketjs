@@ -7,10 +7,10 @@
 // Frame driving stays component-scoped through PocketJS lifecycle callbacks: button presses
 // switch tabs, while a capped frame hook advances deterministic counters.
 
-import { Show, Text, View, type NodeMirror } from "@pocketjs/framework/components";
+import { createMemo, createSignal, onMount, Show } from "solid-js";
+import { Text, View, type NodeMirror } from "@pocketjs/framework/components";
 import { animate } from "@pocketjs/framework/animation";
 import { onButtonPress, onFrame } from "@pocketjs/framework/lifecycle";
-import { createMemo, createSignal, onMount } from "@pocketjs/framework/reactivity";
 import { BTN } from "@pocketjs/framework/input";
 
 const COUNT_FRAMES = 75;

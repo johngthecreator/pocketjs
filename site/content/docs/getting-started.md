@@ -45,8 +45,8 @@ runtime CSS. State comes from `createSignal`, exactly like Solid.
 Here's a focusable counter. Put it in `demos/hero/app.tsx`:
 
 ```tsx
-import { Show, Text, View } from "@pocketjs/framework/components";
-import { createSignal } from "@pocketjs/framework/reactivity";
+import { createSignal, Show } from "solid-js";
+import { Text, View } from "@pocketjs/framework/components";
 
 export default function App() {
   const [count, setCount] = createSignal(0);

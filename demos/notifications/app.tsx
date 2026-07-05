@@ -11,10 +11,10 @@
 // 480x272 (DESIGN.md punts kinetic scroll, so the list can't overflow the
 // screen); every class a FULL literal.
 
-import { For, Show, Text, View, type NodeMirror } from "@pocketjs/framework/components";
+import { createSignal, For, onMount, Show } from "solid-js";
+import { Text, View, type NodeMirror } from "@pocketjs/framework/components";
 import { animate } from "@pocketjs/framework/animation";
 import { onFrame } from "@pocketjs/framework/lifecycle";
-import { createSignal, onMount } from "@pocketjs/framework/reactivity";
 
 interface Notice {
   id: string;

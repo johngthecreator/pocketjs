@@ -112,6 +112,33 @@ async function bundle(entry: string, outfile: string, opts: { shims?: boolean; p
   console.log(`  ${outfile}  (${(code.length / 1024).toFixed(0)} KiB)`);
 }
 
+async function bundleSolid(outfile: string) {
+  const packageJsonPath = Bun.resolveSync("solid-js/package.json", ROOT);
+  const packageDir = dirname(packageJsonPath);
+  const packageJson = await Bun.file(packageJsonPath).json() as {
+    exports?: { "."?: { browser?: { import?: string }; import?: string } };
+  };
+  const browserEntry = packageJson.exports?.["."]?.browser?.import ?? packageJson.exports?.["."]?.import;
+  if (!browserEntry) throw new Error("solid-js browser entry not found");
+  const entry = join(packageDir, browserEntry);
+  const res = await Bun.build({
+    entrypoints: [entry],
+    target: "browser",
+    format: "esm",
+    conditions: ["browser"],
+    define: { "process.env.NODE_ENV": '"production"' },
+    minify: true,
+    sourcemap: "none",
+  });
+  if (!res.success) {
+    for (const l of res.logs) console.error(String(l));
+    throw new Error("bundle failed: solid-js");
+  }
+  const code = await res.outputs[0].text();
+  write(outfile, code);
+  console.log(`  ${outfile}  (${(code.length / 1024).toFixed(0)} KiB)`);
+}
+
 // --- editable single-file demos (launcher imports siblings -> excluded)
 function demoManifest() {
   const dir = ROOT + "demos/";
@@ -138,6 +165,7 @@ async function main() {
   mkdirSync(OUT, { recursive: true });
 
   // 1. bundles
+  await bundleSolid("pg/solid.js");
   await bundle("playground/runtime-entry.ts", "pg/runtime.js");
   await bundle("playground/compiler-entry.ts", "pg/compiler.js", { shims: true, prelude: PROCESS_PRELUDE });
   await bundle("playground/playground.js", "pg/playground.bundle.js");
@@ -248,12 +276,13 @@ async function compileCss() {
   console.log(`  assets/site.css  (${(bytes / 1024).toFixed(0)} KiB)`);
 }
 
-// import-map so compiled apps + the homepage resolve @pocketjs/framework/* to the one runtime
+// import-map so compiled apps resolve PocketJS to one runtime and Solid to its
+// own dependency bundle.
 const IMPORT_MAP = `<script type="importmap">
 {"imports":{
+  "solid-js":"/pg/solid.js",
   "@pocketjs/framework":"/pg/runtime.js",
   "@pocketjs/framework/components":"/pg/runtime.js",
-  "@pocketjs/framework/reactivity":"/pg/runtime.js",
   "@pocketjs/framework/animation":"/pg/runtime.js",
   "@pocketjs/framework/lifecycle":"/pg/runtime.js",
   "@pocketjs/framework/input":"/pg/runtime.js",

@@ -4,15 +4,13 @@ Everything you render in a PocketJS app is built from a tiny set of components,
 all imported from a single entry point:
 
 ```tsx
-import {
-  View, Text, Image,
-  Show, For, Index, Switch, Match,
-} from "@pocketjs/framework/components";
+import { Show, For, Index, Switch, Match } from "solid-js";
+import { View, Text, Image } from "@pocketjs/framework/components";
 ```
 
 There are exactly **three host primitives** — `View`, `Text`, and `Image` —
-plus Solid's control-flow helpers (`Show`, `For`, `Index`, `Switch`, `Match`)
-re-exported for convenience. Higher-level app-shell primitives (`Screen`,
+and Solid's control-flow helpers (`Show`, `For`, `Index`, `Switch`, `Match`)
+come straight from `solid-js`. Higher-level app-shell primitives (`Screen`,
 `Focusable`, `Modal`, and friends) build on `View` and are covered on the
 [App shell](/docs/app-shell/) page.
 
@@ -165,7 +163,7 @@ variable (Solid assigns it) or a callback:
 
 ```tsx
 import { animate } from "@pocketjs/framework/animation";
-import { onMount } from "@pocketjs/framework/reactivity";
+import { onMount } from "solid-js";
 import type { NodeMirror } from "@pocketjs/framework/components";
 
 let underline: NodeMirror | undefined;
@@ -180,9 +178,9 @@ onMount(() => {
 
 Because PocketJS is [Solid](/docs/reactivity/) under the hood, you render lists
 and conditionals with Solid's control-flow components rather than
-`array.map` + `&&`. They are re-exported verbatim from `solid-js`, so their
-semantics are exactly Solid's — but they compile down to native tree-mutation
-ops on the PSP.
+`array.map` + `&&`. Import them directly from `solid-js`; their semantics are
+exactly Solid's, and PocketJS's renderer turns their updates into native
+tree-mutation ops on the PSP.
 
 ### `Show`
 

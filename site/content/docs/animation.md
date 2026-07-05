@@ -66,7 +66,7 @@ variable. Kick the tween off in `onMount`, once the node exists:
 ```tsx
 import { View, type NodeMirror } from "@pocketjs/framework/components";
 import { animate } from "@pocketjs/framework/animation";
-import { onMount } from "@pocketjs/framework/reactivity";
+import { onMount } from "solid-js";
 
 function Underline() {
   let el: NodeMirror | undefined;
@@ -123,7 +123,7 @@ remounts per card, so the spring replays on every open:
 ```tsx
 import { View, Text, type NodeMirror } from "@pocketjs/framework/components";
 import { spring } from "@pocketjs/framework/animation";
-import { onMount } from "@pocketjs/framework/reactivity";
+import { onMount } from "solid-js";
 
 function Detail(props: { title: string; detail: string }) {
   let el: NodeMirror | undefined;

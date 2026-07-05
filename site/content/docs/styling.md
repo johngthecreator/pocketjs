@@ -108,7 +108,7 @@ the compiler can see:
 
 ```tsx
 import { View } from "@pocketjs/framework/components";
-import { createSignal } from "@pocketjs/framework/reactivity";
+import { createSignal } from "solid-js";
 
 const [armed, setArmed] = createSignal(false);
 

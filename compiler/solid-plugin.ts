@@ -36,7 +36,6 @@ const ANIMATION_PATH = new URL("../src/animation.ts", import.meta.url).pathname;
 const COMPONENTS_PATH = new URL("../src/components.ts", import.meta.url).pathname;
 const INPUT_API_PATH = new URL("../src/input-api.ts", import.meta.url).pathname;
 const LIFECYCLE_PATH = new URL("../src/lifecycle.ts", import.meta.url).pathname;
-const REACTIVITY_PATH = new URL("../src/reactivity.ts", import.meta.url).pathname;
 const PACKAGE_NAME = "@pocketjs/framework";
 
 const CACHE_DIR = new URL("../.cache/transforms/", import.meta.url).pathname;
@@ -193,8 +192,6 @@ function packagePath(spec: string): string | null {
       return INPUT_API_PATH;
     case "lifecycle":
       return LIFECYCLE_PATH;
-    case "reactivity":
-      return REACTIVITY_PATH;
     default:
       return null;
   }

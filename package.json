@@ -8,8 +8,7 @@
     "./animation": "./src/animation.ts",
     "./components": "./src/components.ts",
     "./lifecycle": "./src/lifecycle.ts",
-    "./input": "./src/input-api.ts",
-    "./reactivity": "./src/reactivity.ts"
+    "./input": "./src/input-api.ts"
   },
   "description": "Browser-style UI off the browser: familiar JSX, Tailwind utilities and native rendering on PSP-class hardware.",
   "scripts": {

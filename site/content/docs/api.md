@@ -5,8 +5,8 @@ Every public export of `@pocketjs/framework`, grouped by import path. Signatures
 | Import path | Exports |
 | --- | --- |
 | `@pocketjs/framework` | `mount`, `render`, host/runtime helpers, types |
-| `@pocketjs/framework/components` | `View`, `Text`, `Image`, `Show`, `For`, `Index`, `Switch`, `Match`, `Screen`, `Focusable`, `FocusScope`, `FocusGrid`, `ActionHandler`, `Portal`, `Modal`, `ActionBar` |
-| `@pocketjs/framework/reactivity` | `createSignal`, `createEffect`, `createMemo`, `onMount`, `onCleanup`, `batch`, `untrack` |
+| `@pocketjs/framework/components` | `View`, `Text`, `Image`, `Screen`, `Focusable`, `FocusScope`, `FocusGrid`, `ActionHandler`, `Portal`, `Modal`, `ActionBar` |
+| `solid-js` | `createSignal`, `createEffect`, `createMemo`, `onMount`, `onCleanup`, `batch`, `untrack`, `Show`, `For`, `Index`, `Switch`, `Match` |
 | `@pocketjs/framework/animation` | `animate`, `spring`, `cancelAnim` |
 | `@pocketjs/framework/lifecycle` | `onFrame`, `onButtonPress`, `createSpriteAnimation`, `pushButtonHandlerBlock` |
 | `@pocketjs/framework/input` | `BTN`, `focusNode`, `getFocused`, `pushFocusScope`, `pushFocusGrid` |
@@ -153,7 +153,9 @@ The JS mirror of a native node. A `ref` receives one; `animate`, `spring`, `focu
 
 ## `@pocketjs/framework/components`
 
-Platform primitives and higher-level components. Control-flow components (`Show`, `For`, `Index`, `Switch`, `Match`) are re-exported from Solid unchanged.
+Platform primitives and higher-level components. Solid control-flow components
+(`Show`, `For`, `Index`, `Switch`, `Match`) are not exported here; import them
+directly from `solid-js`.
 
 ### Primitives
 
@@ -262,22 +264,14 @@ function ActionBar(props: ActionBarProps): JSX.Element  // ActionBarProps extend
 
 A portalled bottom bar. Defaults to a pinned `left-3 right-3 bottom-3` row when no `class` is given.
 
-### Control flow (re-exported from Solid)
+## `solid-js`
 
-| Component | Usage | Purpose |
-| --- | --- | --- |
-| `Show` | `<Show when={cond} fallback={…}>…</Show>` | Conditional render. |
-| `For` | `<For each={list}>{(item, i) => …}</For>` | List keyed by reference. |
-| `Index` | `<Index each={list}>{(item, i) => …}</Index>` | List keyed by index. |
-| `Switch` / `Match` | `<Switch fallback={…}><Match when={c}>…</Match></Switch>` | Multi-branch. |
+Import Solid's reactive primitives and control-flow components directly from
+`solid-js`. PocketJS relies on the real Solid runtime rather than wrapping or
+curating these exports. Full docs live at
+[solidjs.com](https://www.solidjs.com/docs/latest/api); summary below.
 
-See the [Solid control-flow docs](https://www.solidjs.com/docs/latest/api#control-flow) for full prop shapes; behavior is unchanged.
-
----
-
-## `@pocketjs/framework/reactivity`
-
-Solid's reactivity, re-exported unchanged. Full docs live at [solidjs.com](https://www.solidjs.com/docs/latest/api); summary below.
+### Reactivity
 
 | Export | Signature | Purpose |
 | --- | --- | --- |
@@ -290,6 +284,18 @@ Solid's reactivity, re-exported unchanged. Full docs live at [solidjs.com](https
 | `untrack` | `untrack(fn: () => T) => T` | Read without tracking. |
 
 See [Reactivity](/docs/reactivity/).
+
+### Control flow
+
+| Component | Usage | Purpose |
+| --- | --- | --- |
+| `Show` | `<Show when={cond} fallback={…}>…</Show>` | Conditional render. |
+| `For` | `<For each={list}>{(item, i) => …}</For>` | List keyed by reference. |
+| `Index` | `<Index each={list}>{(item, i) => …}</Index>` | List keyed by index. |
+| `Switch` / `Match` | `<Switch fallback={…}><Match when={c}>…</Match></Switch>` | Multi-branch. |
+
+PocketJS's renderer maps these updates onto the native tree, but the component
+APIs and semantics are Solid's.
 
 ---
 

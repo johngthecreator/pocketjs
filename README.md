@@ -29,7 +29,7 @@ and everything is packed into `dist/<app>.pak`. Pass 2 bundles with Bun
 
 ```tsx
 import { Text, View } from "@pocketjs/framework/components";
-import { createSignal } from "@pocketjs/framework/reactivity";
+import { createSignal } from "solid-js";
 
 const [count, setCount] = createSignal(0);
 

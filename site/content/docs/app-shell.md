@@ -112,7 +112,8 @@ right edge, LEFT to `i - 1` unless at the left edge, DOWN to `i + columns`, UP t
 row/column instead of clamping.
 
 ```tsx
-import { FocusGrid, Focusable, Text, For } from "@pocketjs/framework/components";
+import { For } from "solid-js";
+import { FocusGrid, Focusable, Text } from "@pocketjs/framework/components";
 
 <FocusGrid class="flex-row flex-wrap gap-2 w-[440]" columns={3} wrap>
   <For each={games()}>
@@ -208,7 +209,7 @@ closes, so the page behind can't react to input it can't see.
 
 ```tsx
 import { Modal, Focusable, Text, View } from "@pocketjs/framework/components";
-import { createSignal } from "@pocketjs/framework/reactivity";
+import { createSignal } from "solid-js";
 
 function DeletePrompt(props: { onConfirm: () => void }) {
   const [open, setOpen] = createSignal(false);
@@ -277,16 +278,15 @@ two signals — the active demo index and whether the picker is open — and tha
 the whole "router":
 
 ```tsx
+import { Match, Switch } from "solid-js";
 import {
   ActionHandler,
-  Match,
   Modal,
   Screen,
-  Switch,
   View,
 } from "@pocketjs/framework/components";
 import { BTN } from "@pocketjs/framework/input";
-import { createSignal } from "@pocketjs/framework/reactivity";
+import { createSignal } from "solid-js";
 
 export default function Launcher() {
   const [active, setActive] = createSignal<number | null>(null);
@@ -373,5 +373,5 @@ compose all the way up.
 
 See also: [Input & focus](/docs/input-focus/) for the traversal model,
 [Animation](/docs/animation/) for the frame hooks modals leave running, and
-[Components](/docs/components/) for the underlying `View`/`Text`/`Show`/`Switch`
-surface.
+[Components](/docs/components/) for the underlying `View`/`Text` host
+primitives and how Solid control flow maps onto the native tree.

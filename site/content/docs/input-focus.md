@@ -112,7 +112,7 @@ Grab a node with `ref` (refs hand you the `NodeMirror`) and move focus imperativ
 
 ```tsx
 import { focusNode, getFocused } from "@pocketjs/framework/input";
-import { onMount } from "@pocketjs/framework/reactivity";
+import { onMount } from "solid-js";
 import { Focusable, type NodeMirror } from "@pocketjs/framework/components";
 
 function Menu() {
@@ -139,7 +139,7 @@ primitive underneath is `pushFocusScope`.
 
 ```ts
 import { pushFocusScope } from "@pocketjs/framework/input";
-import { onCleanup } from "@pocketjs/framework/reactivity";
+import { onCleanup } from "solid-js";
 
 // `panel` is a NodeMirror captured from a ref.
 const dispose = pushFocusScope(panel, { autoFocus: true, restoreFocus: true });
@@ -165,7 +165,7 @@ Use the [`FocusGrid`](/docs/app-shell/) component, or the primitive:
 
 ```ts
 import { pushFocusGrid } from "@pocketjs/framework/input";
-import { onCleanup } from "@pocketjs/framework/reactivity";
+import { onCleanup } from "solid-js";
 
 const dispose = pushFocusGrid(gridRoot, { columns: 4, wrap: true });
 onCleanup(dispose);
@@ -206,7 +206,7 @@ behavior (movement, charging) or anything that must sample input every frame.
 ```tsx
 import { onFrame } from "@pocketjs/framework/lifecycle";
 import { BTN } from "@pocketjs/framework/input";
-import { createSignal } from "@pocketjs/framework/reactivity";
+import { createSignal } from "solid-js";
 
 function Player() {
   const [x, setX] = createSignal(0);
@@ -274,7 +274,7 @@ the depth.
 
 ```ts
 import { pushButtonHandlerBlock } from "@pocketjs/framework/lifecycle";
-import { onCleanup } from "@pocketjs/framework/reactivity";
+import { onCleanup } from "solid-js";
 
 const release = pushButtonHandlerBlock();
 onCleanup(release);
@@ -307,6 +307,6 @@ else behaves identically to hardware: arrows drive focus, Enter/Z confirms, and 
 ## Related
 
 - [App shell](/docs/app-shell/) — `Focusable`, `FocusScope`, `FocusGrid`, `Modal`, and `ActionBar` components.
-- [Components](/docs/components/) — `View`, `Text`, `For`, `Show`, and the rest of the primitives.
+- [Components](/docs/components/) — `View`, `Text`, `Image`, and how Solid control flow maps onto the native tree.
 - [Styling](/docs/styling/) — the `focus:` / `active:` variants and the Tailwind subset.
 - [Reactivity](/docs/reactivity/) — `createSignal`, `onMount`, `onCleanup`.

@@ -7,6 +7,9 @@
 //   "@pocketjs/framework/components" -> /pg/runtime.js   (etc.)
 //   "@pocketjs/framework/renderer"   -> /pg/runtime.js   (babel `moduleName` target)
 //
+// The playground maps `solid-js` to its own dependency bundle, so app code uses
+// the same Solid import path it would use outside the docs site.
+//
 // Because all specifiers resolve to the SAME module URL, the compiled app and
 // its bootstrap share ONE runtime instance — one renderer mirror tree, one
 // style registry, one wasm-backed host. That singleton is exactly what we want,
@@ -21,11 +24,6 @@ export {
   View,
   Text,
   Image,
-  Show,
-  For,
-  Index,
-  Switch,
-  Match,
   Screen,
   Focusable,
   FocusScope,
@@ -35,15 +33,6 @@ export {
   Modal,
   ActionBar,
 } from "../../src/components.ts";
-export {
-  createSignal,
-  createEffect,
-  createMemo,
-  onMount,
-  onCleanup,
-  batch,
-  untrack,
-} from "../../src/reactivity.ts";
 export { animate, spring, cancelAnim } from "../../src/animation.ts";
 export {
   onFrame,

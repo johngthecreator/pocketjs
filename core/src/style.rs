@@ -47,24 +47,67 @@ pub struct Transition {
     pub easing: u8,
 }
 
+/// A style record's animation block: baked timeline refs (ANIM TABLE indices,
+/// CSS comma-list order) plus the whole-choreography loop period.
+#[derive(Clone, Default)]
+pub struct StyleAnimation {
+    /// 0 = play once (fills decide the end state).
+    pub loop_frames: u16,
+    pub anims: Vec<u16>,
+}
+
 /// One parsed style record. Variant prop lists are (prop id, raw u32).
 #[derive(Clone, Default)]
 pub struct StyleRecord {
     pub transition: Option<Transition>,
+    pub animation: Option<StyleAnimation>,
     pub base: Vec<(u8, u32)>,
     pub focus: Vec<(u8, u32)>,
     pub active: Vec<(u8, u32)>,
 }
 
-/// The whole styles.bin table; styleId = record index.
+/// One baked animation segment: `prop` goes from→to over frames [t0, t1).
+#[derive(Clone, Copy, Debug)]
+pub struct Segment {
+    pub t0: u16,
+    pub t1: u16,
+    pub from: u32,
+    pub to: u32,
+    /// spec::Easing ordinal (CubicBezier ⇒ `bezier` params are meaningful).
+    pub easing: u8,
+    /// cubic-bezier(x1, y1, x2, y2) control values.
+    pub bezier: [f32; 4],
+}
+
+/// Per-prop segment list of a timeline (sorted by t0, non-overlapping).
+#[derive(Clone, Debug)]
+pub struct TimelineTrack {
+    pub prop: u8,
+    pub segments: Vec<Segment>,
+}
+
+/// One baked keyframe timeline (one CSS animation shorthand entry).
+#[derive(Clone, Debug)]
+pub struct Timeline {
+    pub delay_frames: u16,
+    pub period_frames: u16,
+    /// 0 = infinite.
+    pub iterations: u16,
+    /// spec::style_table::ANIM_FILL_* bits.
+    pub fill: u8,
+    pub tracks: Vec<TimelineTrack>,
+}
+
+/// The whole styles.bin table; styleId = record index, animId = anim index.
 #[derive(Default)]
 pub struct StyleTable {
     pub records: Vec<StyleRecord>,
+    pub anims: Vec<Timeline>,
 }
 
 impl StyleTable {
     pub fn new() -> StyleTable {
-        StyleTable { records: Vec::new() }
+        StyleTable { records: Vec::new(), anims: Vec::new() }
     }
 
     /// Parse a styles.bin blob. `None` on bad magic/version/truncation.
@@ -74,6 +117,7 @@ impl StyleTable {
             return None;
         }
         let count = rd_u16(bytes, 6)? as usize;
+        let anim_count = rd_u16(bytes, 8)? as usize;
         let mut records = Vec::with_capacity(count);
         let mut o = st::HEADER_SIZE;
         for _ in 0..count {
@@ -88,6 +132,21 @@ impl StyleTable {
                     easing: *bytes.get(o + 8)?,
                 });
                 o += st::TRANSITION_SIZE;
+            }
+            if flags & st::HAS_ANIMATION != 0 {
+                let n = *bytes.get(o)? as usize;
+                let loop_frames = rd_u16(bytes, o + 1)?;
+                o += 3;
+                let mut anims = Vec::with_capacity(n);
+                for _ in 0..n {
+                    let id = rd_u16(bytes, o)?;
+                    if id as usize >= anim_count {
+                        return None;
+                    }
+                    anims.push(id);
+                    o += 2;
+                }
+                rec.animation = Some(StyleAnimation { loop_frames, anims });
             }
             for v in 0..3u8 {
                 let bit = match v {
@@ -115,7 +174,47 @@ impl StyleTable {
             }
             records.push(rec);
         }
-        Some(StyleTable { records })
+        let mut anims = Vec::with_capacity(anim_count);
+        for _ in 0..anim_count {
+            let delay_frames = rd_u16(bytes, o)?;
+            let period_frames = rd_u16(bytes, o + 2)?.max(1);
+            let iterations = rd_u16(bytes, o + 4)?;
+            let fill = *bytes.get(o + 6)?;
+            let track_count = *bytes.get(o + 7)? as usize;
+            o += st::ANIM_ENTRY_HEADER_SIZE;
+            let mut tracks = Vec::with_capacity(track_count);
+            for _ in 0..track_count {
+                let prop = *bytes.get(o)?;
+                let seg_count = *bytes.get(o + 1)? as usize;
+                o += 2;
+                if seg_count == 0 || !spec::is_animatable(prop) {
+                    return None;
+                }
+                let mut segments = Vec::with_capacity(seg_count);
+                for _ in 0..seg_count {
+                    let easing = *bytes.get(o + 12)?;
+                    let mut seg = Segment {
+                        t0: rd_u16(bytes, o)?,
+                        t1: rd_u16(bytes, o + 2)?,
+                        from: rd_u32(bytes, o + 4)?,
+                        to: rd_u32(bytes, o + 8)?,
+                        easing,
+                        bezier: [0.0; 4],
+                    };
+                    o += st::ANIM_SEGMENT_SIZE;
+                    if easing == spec::Easing::CubicBezier as u8 {
+                        for i in 0..4 {
+                            seg.bezier[i] = f32::from_bits(rd_u32(bytes, o + i * 4)?);
+                        }
+                        o += st::ANIM_BEZIER_EXTRA_SIZE;
+                    }
+                    segments.push(seg);
+                }
+                tracks.push(TimelineTrack { prop, segments });
+            }
+            anims.push(Timeline { delay_frames, period_frames, iterations, fill, tracks });
+        }
+        Some(StyleTable { records, anims })
     }
 
     /// Record for a style id (STYLE_ID_NONE / out-of-range → None).
@@ -181,6 +280,20 @@ pub struct Resolved {
     pub rotate: f32,
     pub scale_x: f32,
     pub scale_y: f32,
+    /// Transform origin as fractions of node size from the center
+    /// (-0.5 = left/top edge, 0 = center, +0.5 = right/bottom edge).
+    pub origin_x: f32,
+    pub origin_y: f32,
+    /// 3D transform (degrees / px; meaningful under a perspective root).
+    pub rotate_x: f32,
+    pub rotate_y: f32,
+    pub translate_z: f32,
+    /// > 0 makes this node a 3D context root (see spec.ts PROP.perspective).
+    pub perspective: f32,
+    /// Arc primitive (annular sector; see spec.ts PROP.arcStart/Sweep/Width).
+    pub arc_start: f32,
+    pub arc_sweep: f32,
+    pub arc_width: f32,
 }
 
 impl Default for Resolved {
@@ -227,6 +340,15 @@ impl Default for Resolved {
             rotate: 0.0,
             scale_x: 1.0,
             scale_y: 1.0,
+            origin_x: 0.0,
+            origin_y: 0.0,
+            rotate_x: 0.0,
+            rotate_y: 0.0,
+            translate_z: 0.0,
+            perspective: 0.0,
+            arc_start: 0.0,
+            arc_sweep: 0.0,
+            arc_width: 0.0,
         }
     }
 }
@@ -287,6 +409,15 @@ impl Resolved {
             p::ROTATE => self.rotate = f,
             p::SCALE_X => self.scale_x = f,
             p::SCALE_Y => self.scale_y = f,
+            p::ORIGIN_X => self.origin_x = f,
+            p::ORIGIN_Y => self.origin_y = f,
+            p::ROTATE_X => self.rotate_x = f,
+            p::ROTATE_Y => self.rotate_y = f,
+            p::TRANSLATE_Z => self.translate_z = f,
+            p::PERSPECTIVE => self.perspective = f,
+            p::ARC_START => self.arc_start = f,
+            p::ARC_SWEEP => self.arc_sweep = f,
+            p::ARC_WIDTH => self.arc_width = f,
             _ => {}
         }
     }
@@ -346,9 +477,52 @@ impl Resolved {
             p::ROTATE => self.rotate.to_bits(),
             p::SCALE_X => self.scale_x.to_bits(),
             p::SCALE_Y => self.scale_y.to_bits(),
+            p::ORIGIN_X => self.origin_x.to_bits(),
+            p::ORIGIN_Y => self.origin_y.to_bits(),
+            p::ROTATE_X => self.rotate_x.to_bits(),
+            p::ROTATE_Y => self.rotate_y.to_bits(),
+            p::TRANSLATE_Z => self.translate_z.to_bits(),
+            p::PERSPECTIVE => self.perspective.to_bits(),
+            p::ARC_START => self.arc_start.to_bits(),
+            p::ARC_SWEEP => self.arc_sweep.to_bits(),
+            p::ARC_WIDTH => self.arc_width.to_bits(),
             _ => 0,
         }
     }
+}
+
+/// z-index only, WITHOUT building a full `Resolved` — the paint walk asks
+/// for every child's z each frame, and a full resolve there doubled the
+/// per-node style work (measured: the largest single cost in `draw` on PSP).
+pub fn resolve_z(node: &Node, table: &StyleTable) -> i32 {
+    let mut z = 0i32;
+    if let Some(rec) = table.record(node.style_id) {
+        for &(p, v) in &rec.base {
+            if p == spec::prop::Z_INDEX {
+                z = v as i32;
+            }
+        }
+        if node.focused {
+            for &(p, v) in &rec.focus {
+                if p == spec::prop::Z_INDEX {
+                    z = v as i32;
+                }
+            }
+        }
+        if node.active {
+            for &(p, v) in &rec.active {
+                if p == spec::prop::Z_INDEX {
+                    z = v as i32;
+                }
+            }
+        }
+    }
+    for &(p, v) in &node.overrides {
+        if p == spec::prop::Z_INDEX {
+            z = v as i32;
+        }
+    }
+    z
 }
 
 /// Resolve a node's effective style. `with_anim` controls whether live

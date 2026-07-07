@@ -127,6 +127,91 @@ impl Affine {
     }
 }
 
+// ---- 3D transforms (perspective subtrees) ---------------------------------------
+//
+// A node with `perspective > 0` becomes a 3D CONTEXT ROOT: its subtree
+// composes 3x4 affine matrices (implicit preserve-3d), every painted box is
+// projected through the root's perspective distance about the root center,
+// and the projected quads are painter-sorted by camera-space depth before
+// being clipped and emitted as TRIs. Glyph runs project their anchor and draw
+// upright/unscaled (same contract as 2D rotation); images and box decoration
+// (radius/border/shadow) are not part of the 3D contract.
+
+/// Row-major 3x4 affine 3D matrix (the w row is implicitly [0,0,0,1] — all
+/// composed ops are affine; perspective happens at projection time).
+#[derive(Clone, Copy)]
+struct Mat34 {
+    m: [f32; 12],
+}
+
+impl Mat34 {
+    const IDENTITY: Mat34 = Mat34 { m: [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0] };
+
+    /// self ∘ other (apply `other` first, then `self`).
+    fn then(&self, o: &Mat34) -> Mat34 {
+        let a = &self.m;
+        let b = &o.m;
+        let mut out = [0.0f32; 12];
+        for row in 0..3 {
+            for col in 0..4 {
+                let mut v = a[row * 4] * b[col] + a[row * 4 + 1] * b[4 + col] + a[row * 4 + 2] * b[8 + col];
+                if col == 3 {
+                    v += a[row * 4 + 3];
+                }
+                out[row * 4 + col] = v;
+            }
+        }
+        Mat34 { m: out }
+    }
+
+    #[inline]
+    fn apply(&self, x: f32, y: f32, z: f32) -> (f32, f32, f32) {
+        let m = &self.m;
+        (
+            m[0] * x + m[1] * y + m[2] * z + m[3],
+            m[4] * x + m[5] * y + m[6] * z + m[7],
+            m[8] * x + m[9] * y + m[10] * z + m[11],
+        )
+    }
+
+    fn translate(x: f32, y: f32, z: f32) -> Mat34 {
+        Mat34 { m: [1.0, 0.0, 0.0, x, 0.0, 1.0, 0.0, y, 0.0, 0.0, 1.0, z] }
+    }
+
+    fn rot_x(deg: f32) -> Mat34 {
+        let r = deg * (PI / 180.0);
+        let (s, c) = (sinf(r), cosf(r));
+        // Screen y grows DOWN: positive rotateX tips the top edge away, like CSS.
+        Mat34 { m: [1.0, 0.0, 0.0, 0.0, 0.0, c, s, 0.0, 0.0, -s, c, 0.0] }
+    }
+
+    fn rot_y(deg: f32) -> Mat34 {
+        let r = deg * (PI / 180.0);
+        let (s, c) = (sinf(r), cosf(r));
+        Mat34 { m: [c, 0.0, s, 0.0, 0.0, 1.0, 0.0, 0.0, -s, 0.0, c, 0.0] }
+    }
+
+    fn rot_z(deg: f32) -> Mat34 {
+        let r = deg * (PI / 180.0);
+        let (s, c) = (sinf(r), cosf(r));
+        Mat34 { m: [c, -s, 0.0, 0.0, s, c, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0] }
+    }
+
+    fn scale(sx: f32, sy: f32) -> Mat34 {
+        Mat34 { m: [sx, 0.0, 0.0, 0.0, 0.0, sy, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0] }
+    }
+}
+
+/// One depth-sorted paintable inside a 3D context.
+enum Item3 {
+    /// Projected flat-color quad (screen space, pre-clip).
+    Quad { pts: [(f32, f32); 4], color: u32 },
+    /// Projected textured quad (an image node; UVs ride the corners).
+    TexQuad { pts: [(f32, f32); 4], uv: [(f32, f32); 4], tex: u32, modulate: u32 },
+    /// A text node's glyph run, anchored at its projected origin.
+    Run { slot: u32, origin: (f32, f32), opacity: f32 },
+}
+
 /// Screen-space clip rect (x0 <= x1, y0 <= y1), f32 but integer-valued.
 #[derive(Clone, Copy, Debug)]
 struct Clip {
@@ -308,6 +393,88 @@ fn fill_color_at(fill: &Fill, x0: f32, y0: f32, x1: f32, y1: f32, sx0: i32, sy: 
 
 // ---- the walker ------------------------------------------------------------------
 
+/// Baked antialiased disc sprites keyed by integer radius — rounded corners
+/// render as four O(1) corner TEX_QUADs + three RECTs instead of per-row
+/// coverage spans (the spans measured ~7 ms/frame of CPU on real PSP
+/// hardware for rounded-heavy screens).
+pub struct DiscCache {
+    /// (radius px, texture handle)
+    entries: Vec<(u32, u32)>,
+}
+
+impl DiscCache {
+    pub const fn new() -> DiscCache {
+        DiscCache { entries: Vec::new() }
+    }
+}
+
+impl Default for DiscCache {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Get (or bake + upload) the AA disc texture for `r_px`. The disc is a
+/// 2r x 2r circle, supersampled 4x4, white RGB with coverage alpha
+/// (PSM_8888), padded to pow2 — corners sample their quadrant and modulate
+/// by the fill color, which matches the old span math's scale_alpha exactly
+/// up to AA rounding.
+fn disc_texture(cache: &mut DiscCache, textures: &mut Vec<crate::Texture>, r_px: u32) -> Option<(u32, u32)> {
+    if let Some(&(_, handle)) = cache.entries.iter().find(|&&(r, _)| r == r_px) {
+        let dim = pow2_at_least(2 * r_px);
+        return Some((handle, dim));
+    }
+    let size = 2 * r_px;
+    let dim = pow2_at_least(size);
+    if dim > spec::TEX_MAX_DIM {
+        return None;
+    }
+    let byte_len = (dim * dim * 4) as usize;
+    let mut px = alloc::vec![0u8; byte_len];
+    let c = r_px as f32; // disc center (r, r)
+    let rr = c * c;
+    for y in 0..size {
+        for x in 0..size {
+            let mut covered = 0u32;
+            for sy in 0..4u32 {
+                for sx in 0..4u32 {
+                    let fx = x as f32 + (sx as f32 + 0.5) / 4.0;
+                    let fy = y as f32 + (sy as f32 + 0.5) / 4.0;
+                    let dx = fx - c;
+                    let dy = fy - c;
+                    if dx * dx + dy * dy <= rr {
+                        covered += 1;
+                    }
+                }
+            }
+            if covered > 0 {
+                let o = ((y * dim + x) * 4) as usize;
+                px[o] = 255;
+                px[o + 1] = 255;
+                px[o + 2] = 255;
+                px[o + 3] = ((covered * 255 + 8) / 16) as u8;
+            }
+        }
+    }
+    let mut chunks = alloc::vec![0u128; byte_len.div_ceil(16)];
+    unsafe {
+        core::ptr::copy_nonoverlapping(px.as_ptr(), chunks.as_mut_ptr() as *mut u8, byte_len);
+    }
+    textures.push(crate::Texture { data: chunks, byte_len, w: dim, h: dim, psm: spec::psm::PSM_8888 });
+    let handle = (textures.len() - 1) as u32;
+    cache.entries.push((r_px, handle));
+    Some((handle, dim))
+}
+
+#[inline]
+fn pow2_at_least(n: u32) -> u32 {
+    let mut p = 1u32;
+    while p < n {
+        p <<= 1;
+    }
+    p
+}
+
 struct Walker<'a> {
     tree: &'a Tree,
     styles: &'a StyleTable,
@@ -318,21 +485,27 @@ struct Walker<'a> {
     /// [0, screen.0] x [0, screen.1] (i16-safe; hosts cap it well under 32k).
     screen: (f32, f32),
     glyph_scratch: Vec<crate::text::GlyphPos>,
+    /// Core texture list (baked corner discs append lazily during the walk).
+    textures: &'a mut Vec<crate::Texture>,
+    discs: &'a mut DiscCache,
 }
 
 /// Build the full DrawList for the current (laid-out) tree. `frame` is the
 /// core's vblank counter (Ui.frame); animated sprites pick their cell from it.
 /// `screen` is the viewport every coordinate is clipped to.
+#[allow(clippy::too_many_arguments)]
 pub fn build(
     tree: &Tree,
     styles: &StyleTable,
     fonts: &Fonts,
     frame: u64,
     screen: (f32, f32),
+    textures: &mut Vec<crate::Texture>,
+    discs: &mut DiscCache,
     dl: &mut DrawList,
 ) {
     dl.words.clear();
-    let mut w = Walker { tree, styles, fonts, frame, screen, glyph_scratch: Vec::new() };
+    let mut w = Walker { tree, styles, fonts, frame, screen, glyph_scratch: Vec::new(), textures, discs };
     let root_slot = crate::tree::split_id(spec::ROOT_ID).1;
     w.paint(root_slot, Affine::IDENTITY, 1.0, Clip::viewport(screen), dl);
 }
@@ -349,7 +522,9 @@ impl<'a> Walker<'a> {
         // the node center.
         let mut local = Affine::translate(l.x + r.translate_x, l.y + r.translate_y);
         if r.rotate != 0.0 || r.scale != 1.0 || r.scale_x != 1.0 || r.scale_y != 1.0 {
-            let (cx, cy) = (l.w * 0.5, l.h * 0.5);
+            // Transform origin: node center offset by the origin fractions
+            // (`origin-*` utilities; e.g. origin-bottom = (0, +0.5)).
+            let (cx, cy) = (l.w * (0.5 + r.origin_x), l.h * (0.5 + r.origin_y));
             let rad = r.rotate * (PI / 180.0);
             // rotate == 0 keeps EXACT axis alignment (the trig polyfill is a
             // few ulp off at multiples of pi/2, which would silently demote
@@ -385,7 +560,14 @@ impl<'a> Walker<'a> {
             self.emit_shadow(dl, &world, l.w, l.h, r.radius, r.shadow, op, &clip);
         }
 
-        if rounded_ring {
+        let is_arc = r.arc_width > 0.0 && r.arc_sweep != 0.0;
+        if is_arc {
+            // Arc primitive: the bg color strokes an annular sector instead
+            // of filling the box (spec.ts PROP.arcStart/arcSweep/arcWidth).
+            if alpha(bg_color) > 0 {
+                self.emit_arc(dl, &world, l.w, l.h, &r, bg_color, &clip);
+            }
+        } else if rounded_ring {
             self.emit_rounded_box(dl, &world, 0.0, 0.0, l.w, l.h, r.radius, Fill::Flat(border_color), &clip);
             let bw = r.border_width.min(l.w * 0.5).min(l.h * 0.5);
             if has_grad {
@@ -483,23 +665,383 @@ impl<'a> Walker<'a> {
             scissored = true;
         }
 
+        if r.perspective > 0.0 {
+            // 3D context root: the subtree composes 3x4 matrices, projects
+            // through r.perspective about this node's center and painter-sorts.
+            self.paint_3d(slot, &world, op, &child_clip, dl, r.perspective, l.w, l.h);
+            if scissored {
+                dl.words.push(spec::draw_op::SCISSOR_POP);
+            }
+            return;
+        }
+
+        // z-index is rare: detect it with the cheap z-only resolve, and only
+        // allocate + sort when a child actually carries one (the hot path is
+        // a straight index walk with zero allocations).
         let node = &self.tree.slots[slot as usize];
-        let mut order: Vec<(i32, u32)> = Vec::with_capacity(node.children.len());
+        let child_count = node.children.len();
+        let mut needs_sort = false;
         for &cid in &node.children {
             if let Some(cs) = self.tree.resolve(cid) {
-                let z = style::resolve(&self.tree.slots[cs as usize], self.styles, true).z_index;
-                order.push((z, cs));
+                if style::resolve_z(&self.tree.slots[cs as usize], self.styles) != 0 {
+                    needs_sort = true;
+                    break;
+                }
             }
         }
-        // Stable by construction: sort_by_key on Vec preserves insertion
-        // order of equal keys (alloc's stable merge sort).
-        order.sort_by_key(|&(z, _)| z);
-        for (_, cs) in order {
-            self.paint(cs, world, op, child_clip, dl);
+        if !needs_sort {
+            for i in 0..child_count {
+                let cid = self.tree.slots[slot as usize].children[i];
+                if let Some(cs) = self.tree.resolve(cid) {
+                    self.paint(cs, world, op, child_clip, dl);
+                }
+            }
+        } else {
+            let node = &self.tree.slots[slot as usize];
+            let mut order: Vec<(i32, u32)> = Vec::with_capacity(node.children.len());
+            for &cid in &node.children {
+                if let Some(cs) = self.tree.resolve(cid) {
+                    let z = style::resolve_z(&self.tree.slots[cs as usize], self.styles);
+                    order.push((z, cs));
+                }
+            }
+            // Stable by construction: sort_by_key on Vec preserves insertion
+            // order of equal keys (alloc's stable merge sort).
+            order.sort_by_key(|&(z, _)| z);
+            for (_, cs) in order {
+                self.paint(cs, world, op, child_clip, dl);
+            }
         }
 
         if scissored {
             dl.words.push(spec::draw_op::SCISSOR_POP);
+        }
+    }
+
+    // ---- 3D context ---------------------------------------------------------
+
+    /// Paint the subtree of a perspective root: collect projected quads and
+    /// glyph runs depth-first, painter-sort by camera-space depth (far first),
+    /// then clip + emit. `w`/`h` are the root's layout size (the perspective
+    /// origin sits at its center, CSS default).
+    #[allow(clippy::too_many_arguments)]
+    fn paint_3d(
+        &mut self,
+        root_slot: u32,
+        root_world: &Affine,
+        opacity: f32,
+        clip: &Clip,
+        dl: &mut DrawList,
+        distance: f32,
+        w: f32,
+        h: f32,
+    ) {
+        let (cx, cy) = (w * 0.5, h * 0.5);
+        let mut items: Vec<(f32, Item3)> = Vec::new();
+        let root = &self.tree.slots[root_slot as usize];
+        let children: Vec<i32> = root.children.clone();
+        for cid in children {
+            if let Some(cs) = self.tree.resolve(cid) {
+                self.collect_3d(cs, &Mat34::IDENTITY, opacity, root_world, distance, cx, cy, &mut items);
+            }
+        }
+        // Painter's algorithm: farthest (smallest camera z) first. total_cmp
+        // keeps this deterministic; stable sort preserves tree order for ties.
+        items.sort_by(|a, b| a.0.total_cmp(&b.0));
+        for (_, item) in items {
+            match item {
+                Item3::Quad { pts, color } => {
+                    let poly: Vec<ClipVert> = pts
+                        .iter()
+                        .map(|&(x, y)| ClipVert { x, y, color: unpack(color), u: 0.0, v: 0.0 })
+                        .collect();
+                    let clipped = sutherland_hodgman(&poly, clip);
+                    for i in 1..clipped.len().saturating_sub(1) {
+                        emit_tri(dl, &clipped[0], &clipped[i], &clipped[i + 1], clip, self.screen);
+                    }
+                }
+                Item3::TexQuad { pts, uv, tex, modulate } => {
+                    let poly: Vec<ClipVert> = pts
+                        .iter()
+                        .zip(uv.iter())
+                        .map(|(&(x, y), &(u, v))| ClipVert { x, y, color: [255.0; 4], u, v })
+                        .collect();
+                    let clipped = sutherland_hodgman(&poly, clip);
+                    for i in 1..clipped.len().saturating_sub(1) {
+                        emit_tex_tri(dl, tex, modulate, &clipped[0], &clipped[i], &clipped[i + 1], clip, self.screen);
+                    }
+                }
+                Item3::Run { slot, origin, opacity } => {
+                    // (borrows through the walker's &'a Tree field, so the
+                    // node ref is not tied to &mut self)
+                    let node = &self.tree.slots[slot as usize];
+                    let r = style::resolve(node, self.styles, true);
+                    let anchor = Affine::translate(origin.0, origin.1);
+                    self.emit_text(dl, node, &r, &anchor, opacity, clip, node.layout.w);
+                }
+            }
+        }
+    }
+
+    /// Depth-first 3D collection. `m` maps node-local 3D coords into the
+    /// context root's local space; projection happens here so every painted
+    /// box becomes one flat screen quad + depth key.
+    #[allow(clippy::too_many_arguments)]
+    fn collect_3d(
+        &self,
+        slot: u32,
+        m: &Mat34,
+        opacity: f32,
+        root_world: &Affine,
+        distance: f32,
+        cx: f32,
+        cy: f32,
+        items: &mut Vec<(f32, Item3)>,
+    ) {
+        let node = &self.tree.slots[slot as usize];
+        let r = style::resolve(node, self.styles, true);
+        if r.display == spec::Display::None as u8 {
+            return;
+        }
+        let op = opacity * clampf(r.opacity, 0.0, 1.0);
+        if op <= 0.0 {
+            return;
+        }
+        let l = node.layout;
+        // Local matrix, canonical function order (matches the CSS transform
+        // lists this models: translate/translateZ leftmost, then rotate,
+        // rotateX, rotateY, with 2D scale innermost), conjugated around the
+        // transform origin.
+        let (ox, oy) = (l.w * (0.5 + r.origin_x), l.h * (0.5 + r.origin_y));
+        let mut local = Mat34::translate(l.x + r.translate_x, l.y + r.translate_y, r.translate_z)
+            .then(&Mat34::translate(ox, oy, 0.0));
+        if r.rotate != 0.0 {
+            local = local.then(&Mat34::rot_z(r.rotate));
+        }
+        if r.rotate_x != 0.0 {
+            local = local.then(&Mat34::rot_x(r.rotate_x));
+        }
+        if r.rotate_y != 0.0 {
+            local = local.then(&Mat34::rot_y(r.rotate_y));
+        }
+        let (sx, sy) = (r.scale * r.scale_x, r.scale * r.scale_y);
+        if sx != 1.0 || sy != 1.0 {
+            local = local.then(&Mat34::scale(sx, sy));
+        }
+        local = local.then(&Mat34::translate(-ox, -oy, 0.0));
+        let m2 = m.then(&local);
+
+        let project = |x: f32, y: f32| -> ((f32, f32), f32) {
+            let (px, py, pz) = m2.apply(x, y, 0.0);
+            let denom = (distance - pz).max(1.0); // near guard
+            let f = distance / denom;
+            let lx = cx + (px - cx) * f;
+            let ly = cy + (py - cy) * f;
+            (root_world.apply(lx, ly), pz)
+        };
+
+        // Background -> one flat quad (gradients flatten to the mid-blend;
+        // radius/border/shadow are outside the 3D contract).
+        let color = if r.grad_dir != NO_GRADIENT && r.grad_dir <= spec::GradDir::ToRight as u32 {
+            lerp_color(r.grad_from, r.grad_to, 0.5)
+        } else {
+            r.bg_color
+        };
+        let color = scale_alpha(color, op);
+        if alpha(color) > 0 && l.w > 0.0 && l.h > 0.0 {
+            let c0 = project(0.0, 0.0);
+            let c1 = project(l.w, 0.0);
+            let c2 = project(l.w, l.h);
+            let c3 = project(0.0, l.h);
+            let depth = (c0.1 + c1.1 + c2.1 + c3.1) * 0.25;
+            items.push((depth, Item3::Quad { pts: [c0.0, c1.0, c2.0, c3.0], color }));
+        }
+        if node.node_type == spec::NodeType::Image as u8 && node.tex >= 0 && l.w > 0.0 && l.h > 0.0 {
+            let (fu0, fv0, fu1, fv1) = if node.sprite_frames > 0 {
+                let cols = node.sprite_cols.max(1) as u32;
+                let rows = (node.sprite_frames as u32).div_ceil(cols);
+                let step = node.sprite_step.max(1) as u64;
+                let elapsed = self.frame.wrapping_sub(node.sprite_start);
+                let idx = ((elapsed / step) % node.sprite_frames as u64) as u32;
+                let (cx2, cy2) = (idx % cols, idx / cols);
+                (
+                    cx2 as f32 / cols as f32,
+                    cy2 as f32 / rows as f32,
+                    (cx2 + 1) as f32 / cols as f32,
+                    (cy2 + 1) as f32 / rows as f32,
+                )
+            } else {
+                (0.0, 0.0, 1.0, 1.0)
+            };
+            let c0 = project(0.0, 0.0);
+            let c1 = project(l.w, 0.0);
+            let c2 = project(l.w, l.h);
+            let c3 = project(0.0, l.h);
+            let depth = (c0.1 + c1.1 + c2.1 + c3.1) * 0.25 + 0.005;
+            items.push((
+                depth,
+                Item3::TexQuad {
+                    pts: [c0.0, c1.0, c2.0, c3.0],
+                    uv: [(fu0, fv0), (fu1, fv0), (fu1, fv1), (fu0, fv1)],
+                    tex: node.tex as u32,
+                    modulate: scale_alpha(0xffff_ffff, op),
+                },
+            ));
+        }
+        if node.node_type == spec::NodeType::Text as u8 {
+            // Glyphs anchor at the projected text origin and stay upright
+            // (the 2D rotation contract). Depth = the anchor's z.
+            let ((sx, sy), z) = project(0.0, 0.0);
+            items.push((z + 0.01, Item3::Run { slot, origin: (sx, sy), opacity: op }));
+            return; // text children are absorbed into the run
+        }
+        for &cid in &node.children {
+            if let Some(cs) = self.tree.resolve(cid) {
+                self.collect_3d(cs, &m2, op, root_world, distance, cx, cy, items);
+            }
+        }
+    }
+
+    /// Rasterize an annular sector ("stroke arc" with round caps) as
+    /// alpha-covered RECT runs — deterministic 2x2 supersampled coverage.
+    /// Axis-aligned worlds only; rotation belongs in arcStart.
+    fn emit_arc(
+        &self,
+        dl: &mut DrawList,
+        world: &Affine,
+        w: f32,
+        h: f32,
+        r: &style::Resolved,
+        color: u32,
+        clip: &Clip,
+    ) {
+        if !world.is_axis_aligned() {
+            return;
+        }
+        let (cx, cy) = world.apply(w * 0.5, h * 0.5);
+        let s = world.d.max(0.0);
+        let outer = (w.min(h) * 0.5) * s;
+        let width = (r.arc_width * s).min(outer);
+        if outer <= 0.0 || width <= 0.0 {
+            return;
+        }
+        let rmid = outer - width * 0.5;
+        let half = width * 0.5;
+        // Ring test in squared space (|d - rmid| <= half without the sqrt).
+        let ring_in = (rmid - half).max(0.0);
+        let ring_in2 = ring_in * ring_in;
+        let ring_out = rmid + half;
+        let ring_out2 = ring_out * ring_out;
+        let sweep = clampf(r.arc_sweep, -360.0, 360.0);
+        let (a0, asweep) = if sweep < 0.0 { (r.arc_start + sweep, -sweep) } else { (r.arc_start, sweep) };
+        let full = asweep >= 360.0;
+        let major = asweep > 180.0;
+        // 0 deg = 12 o'clock, clockwise positive.
+        let dir = |deg: f32| {
+            let rad = deg * (PI / 180.0);
+            (sinf(rad), -cosf(rad))
+        };
+        let (svx, svy) = dir(a0);
+        let (evx, evy) = dir(a0 + asweep);
+        let cap0 = (cx + svx * rmid, cy + svy * rmid);
+        let cap1 = (cx + evx * rmid, cy + evy * rmid);
+        let half2 = half * half;
+
+        let x0 = floorf(clampf(cx - outer, clip.x0, clip.x1)) as i32;
+        let x1 = ceilf(clampf(cx + outer, clip.x0, clip.x1)) as i32;
+        let y0 = floorf(clampf(cy - outer, clip.y0, clip.y1)) as i32;
+        let y1 = ceilf(clampf(cy + outer, clip.y0, clip.y1)) as i32;
+
+        let covered = |px: f32, py: f32| -> bool {
+            let dx = px - cx;
+            let dy = py - cy;
+            let d2 = dx * dx + dy * dy;
+            let in_ring = d2 >= ring_in2 && d2 <= ring_out2;
+            if in_ring {
+                let in_angle = full || {
+                    let cross_s = svx * dy - svy * dx;
+                    let cross_e = evx * dy - evy * dx;
+                    if major { cross_s >= 0.0 || cross_e <= 0.0 } else { cross_s >= 0.0 && cross_e <= 0.0 }
+                };
+                if in_angle {
+                    return true;
+                }
+            }
+            if full {
+                return false;
+            }
+            // Round caps at both endpoints.
+            let d0x = px - cap0.0;
+            let d0y = py - cap0.1;
+            if d0x * d0x + d0y * d0y <= half2 {
+                return true;
+            }
+            let d1x = px - cap1.0;
+            let d1y = py - cap1.1;
+            d1x * d1x + d1y * d1y <= half2
+        };
+
+        for row in y0..y1 {
+            // Row clamp: only columns whose pixel can touch the OUTER circle
+            // matter; the ring's inner hole is skipped analytically too (cap
+            // discs sit ON the ring so they never reach into the hole). This
+            // cuts the scanned pixels ~3x — the arc rasterizer runs every
+            // frame on the PSP CPU.
+            let dy = row as f32 + 0.5 - cy;
+            let dy2 = dy * dy;
+            if dy2 > ring_out2 + ring_out + 1.0 {
+                continue;
+            }
+            let half_span = sqrtf((ring_out2 - dy2).max(0.0)) + 1.0;
+            let row_x0 = (floorf(cx - half_span) as i32).max(x0);
+            let row_x1 = (ceilf(cx + half_span) as i32).min(x1);
+            let hole_span = if dy2 < ring_in2 { sqrtf(ring_in2 - dy2) - 1.0 } else { -1.0 };
+            let (hole_x0, hole_x1) = if hole_span > 1.0 {
+                ((cx - hole_span) as i32, (cx + hole_span) as i32)
+            } else {
+                (i32::MAX, i32::MIN)
+            };
+            let mut run_start = row_x0;
+            let mut run_cov = 0u32;
+            let flush = |dl: &mut DrawList, start: i32, end: i32, cov: u32| {
+                if cov == 0 || end <= start {
+                    return;
+                }
+                let c = scale_alpha(color, cov as f32 / 4.0);
+                if alpha(c) == 0 {
+                    return;
+                }
+                dl.words.push(spec::draw_op::RECT);
+                dl.words.push(xy_word(start as f32, row as f32));
+                dl.words.push(wh_word((end - start) as f32, 1.0));
+                dl.words.push(c);
+            };
+            let mut col = row_x0;
+            while col < row_x1 {
+                if col >= hole_x0 && col < hole_x1 {
+                    // Fully inside the ring hole: flush and jump across.
+                    if run_cov != 0 {
+                        flush(dl, run_start, col, run_cov);
+                        run_cov = 0;
+                    }
+                    run_start = hole_x1;
+                    col = hole_x1;
+                    continue;
+                }
+                let mut cov = 0u32;
+                for (ox, oy) in [(0.25f32, 0.25f32), (0.75, 0.25), (0.25, 0.75), (0.75, 0.75)] {
+                    if covered(col as f32 + ox, row as f32 + oy) {
+                        cov += 1;
+                    }
+                }
+                if cov != run_cov {
+                    flush(dl, run_start, col, run_cov);
+                    run_start = col;
+                    run_cov = cov;
+                }
+                col += 1;
+            }
+            flush(dl, run_start, row_x1, run_cov);
         }
     }
 
@@ -592,7 +1134,7 @@ impl<'a> Walker<'a> {
             let mut poly: Vec<ClipVert> = Vec::with_capacity(8);
             for (i, &(lx, ly)) in corners.iter().enumerate() {
                 let (sx, sy) = world.apply(lx, ly);
-                poly.push(ClipVert { x: sx, y: sy, color: unpack(corner_color(&fill, i)) });
+                poly.push(ClipVert { x: sx, y: sy, color: unpack(corner_color(&fill, i)), u: 0.0, v: 0.0 });
             }
             let clipped = sutherland_hodgman(&poly, clip);
             if clipped.len() < 3 {
@@ -602,6 +1144,55 @@ impl<'a> Walker<'a> {
                 emit_tri(dl, &clipped[0], &clipped[i], &clipped[i + 1], clip, self.screen);
             }
         }
+    }
+
+    /// Screen-space flat/grad rect helper (already-transformed coords).
+    #[allow(clippy::too_many_arguments)]
+    fn emit_screen_rect(&self, dl: &mut DrawList, x0: f32, y0: f32, x1: f32, y1: f32, fill: Fill, clip: &Clip) {
+        if x1 <= x0 || y1 <= y0 {
+            return;
+        }
+        self.emit_box(dl, &Affine::IDENTITY, x0, y0, x1, y1, fill, clip);
+    }
+
+    /// One rounded-corner sprite: an r x r quadrant of the baked disc,
+    /// clipped, with UVs re-interpolated over the visible part.
+    #[allow(clippy::too_many_arguments)]
+    fn emit_corner_quad(
+        &self,
+        dl: &mut DrawList,
+        tex: u32,
+        x: f32,
+        y: f32,
+        r: f32,
+        u0: f32,
+        v0: f32,
+        du: f32,
+        color: u32,
+        clip: &Clip,
+    ) {
+        let c = Clip {
+            x0: x.max(clip.x0),
+            y0: y.max(clip.y0),
+            x1: (x + r).min(clip.x1),
+            y1: (y + r).min(clip.y1),
+        };
+        if c.is_empty() || roundf(c.x1 - c.x0) <= 0.0 || roundf(c.y1 - c.y0) <= 0.0 {
+            return;
+        }
+        let cu0 = u0 + (c.x0 - x) / r * du;
+        let cu1 = u0 + (c.x1 - x) / r * du;
+        let cv0 = v0 + (c.y0 - y) / r * du;
+        let cv1 = v0 + (c.y1 - y) / r * du;
+        dl.words.push(spec::draw_op::TEX_QUAD);
+        dl.words.push(tex);
+        dl.words.push(xy_word(c.x0, c.y0));
+        dl.words.push(wh_word(c.x1 - c.x0, c.y1 - c.y0));
+        dl.words.push(cu0.to_bits());
+        dl.words.push(cv0.to_bits());
+        dl.words.push(cu1.to_bits());
+        dl.words.push(cv1.to_bits());
+        dl.words.push(color);
     }
 
     fn rounded_interval_at_row(
@@ -756,7 +1347,7 @@ impl<'a> Walker<'a> {
 
     #[allow(clippy::too_many_arguments)]
     fn emit_rounded_border(
-        &self,
+        &mut self,
         dl: &mut DrawList,
         world: &Affine,
         x0: f32,
@@ -884,7 +1475,7 @@ impl<'a> Walker<'a> {
 
     #[allow(clippy::too_many_arguments)]
     fn emit_rounded_box(
-        &self,
+        &mut self,
         dl: &mut DrawList,
         world: &Affine,
         x0: f32,
@@ -911,6 +1502,40 @@ impl<'a> Walker<'a> {
         if r <= 0.5 {
             self.emit_box(dl, world, x0, y0, x1, y1, fill, clip);
             return;
+        }
+        // Flat fills: four baked-disc corner sprites + three rects — O(1)
+        // ops per box instead of per-row coverage spans (the spans cost
+        // ~7 ms/frame of PSP CPU on rounded-heavy screens). Gradients keep
+        // the exact span path below.
+        if let Fill::Flat(color) = fill {
+            let r_px = roundf(r).max(1.0) as u32;
+            // Bake discs only for small radii: UI corner radii recur and
+            // cache forever, but ANIMATED radii (a scaling rounded-full
+            // splash) mint a new radius every frame — baking those spiked a
+            // real-PSP frame to 118 ms and grew the texture list unboundedly.
+            // Large radii take the analytic span path below instead.
+            const DISC_MAX_R: u32 = 32;
+            if r_px <= DISC_MAX_R {
+                if let Some((tex, dim)) = disc_texture(self.discs, self.textures, r_px) {
+                    let rf = r_px as f32;
+                    let du = rf / dim as f32; // one corner quadrant in UV space
+                    let corners = [
+                        (sx0, sy0, 0.0, 0.0),           // TL quadrant
+                        (sx1 - rf, sy0, du, 0.0),       // TR
+                        (sx0, sy1 - rf, 0.0, du),       // BL
+                        (sx1 - rf, sy1 - rf, du, du),   // BR
+                    ];
+                    for &(cx, cy, u0, v0) in corners.iter() {
+                        self.emit_corner_quad(dl, tex, cx, cy, rf, u0, v0, du, color, clip);
+                    }
+                    let mid = Fill::Flat(color);
+                    // middle band (full width) + top/bottom strips between corners
+                    self.emit_screen_rect(dl, sx0, sy0 + rf, sx1, sy1 - rf, mid, clip);
+                    self.emit_screen_rect(dl, sx0 + rf, sy0, sx1 - rf, sy0 + rf, mid, clip);
+                    self.emit_screen_rect(dl, sx0 + rf, sy1 - rf, sx1 - rf, sy1, mid, clip);
+                    return;
+                }
+            }
         }
         let ix0 = floorf(sx0).max(floorf(clip.x0)).max(0.0) as i32;
         let iy0 = floorf(sy0).max(floorf(clip.y0)).max(0.0) as i32;
@@ -1055,7 +1680,7 @@ impl<'a> Walker<'a> {
         }
     }
 
-    fn emit_shadow(&self, dl: &mut DrawList, world: &Affine, w: f32, h: f32, radius: f32, level: u32, opacity: f32, clip: &Clip) {
+    fn emit_shadow(&mut self, dl: &mut DrawList, world: &Affine, w: f32, h: f32, radius: f32, level: u32, opacity: f32, clip: &Clip) {
         if !world.is_axis_aligned() {
             return;
         }
@@ -1098,6 +1723,24 @@ impl<'a> Walker<'a> {
         fv1: f32,
     ) {
         if !world.is_axis_aligned() {
+            // Rotated image: transform corners with their UVs, clip, fan into
+            // TEX_TRIs (affine screen-space sampling).
+            let corners = [
+                (0.0, 0.0, fu0, fv0),
+                (w, 0.0, fu1, fv0),
+                (w, h, fu1, fv1),
+                (0.0, h, fu0, fv1),
+            ];
+            let mut poly: Vec<ClipVert> = Vec::with_capacity(8);
+            for &(lx, ly, u, v) in corners.iter() {
+                let (sx, sy) = world.apply(lx, ly);
+                poly.push(ClipVert { x: sx, y: sy, color: [255.0; 4], u, v });
+            }
+            let clipped = sutherland_hodgman(&poly, clip);
+            let modulate = scale_alpha(0xffff_ffff, op);
+            for i in 1..clipped.len().saturating_sub(1) {
+                emit_tex_tri(dl, tex, modulate, &clipped[0], &clipped[i], &clipped[i + 1], clip, self.screen);
+            }
             return;
         }
         let (sx0, sy0) = world.apply(0.0, 0.0);
@@ -1219,6 +1862,10 @@ struct ClipVert {
     x: f32,
     y: f32,
     color: [f32; 4], // r, g, b, a (ABGR channel order irrelevant: symmetric)
+    /// Normalized texture coords (only meaningful on TEX_TRI paths; solid
+    /// paths carry zeros).
+    u: f32,
+    v: f32,
 }
 
 fn unpack(c: u32) -> [f32; 4] {
@@ -1245,7 +1892,43 @@ fn lerp_vert(a: &ClipVert, b: &ClipVert, t: f32) -> ClipVert {
             a.color[2] + (b.color[2] - a.color[2]) * t,
             a.color[3] + (b.color[3] - a.color[3]) * t,
         ],
+        u: a.u + (b.u - a.u) * t,
+        v: a.v + (b.v - a.v) * t,
     }
+}
+
+/// Emit one TEX_TRI op (degenerate triangles after rounding are dropped).
+fn emit_tex_tri(
+    dl: &mut DrawList,
+    tex: u32,
+    modulate: u32,
+    v0: &ClipVert,
+    v1: &ClipVert,
+    v2: &ClipVert,
+    clip: &Clip,
+    screen: (f32, f32),
+) {
+    let px = |v: &ClipVert| {
+        (
+            clampf(roundf(clampf(v.x, clip.x0, clip.x1)), 0.0, screen.0),
+            clampf(roundf(clampf(v.y, clip.y0, clip.y1)), 0.0, screen.1),
+        )
+    };
+    let (x0, y0) = px(v0);
+    let (x1, y1) = px(v1);
+    let (x2, y2) = px(v2);
+    let area2 = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0);
+    if area2 == 0.0 {
+        return;
+    }
+    dl.words.push(spec::draw_op::TEX_TRI);
+    dl.words.push(tex);
+    for (xy, vert) in [((x0, y0), v0), ((x1, y1), v1), ((x2, y2), v2)] {
+        dl.words.push(xy_word(xy.0, xy.1));
+        dl.words.push(vert.u.to_bits());
+        dl.words.push(vert.v.to_bits());
+    }
+    dl.words.push(modulate);
 }
 
 /// Clip a convex polygon against the 4 half-planes of `clip`, interpolating

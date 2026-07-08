@@ -39,10 +39,10 @@ bun scripts/build.ts hero             # -> dist/hero.js + dist/hero.pak
 bun scripts/build.ts hero-vue-vapor-main --framework=vue-vapor
 ```
 
-Or drive everything through the [`pocketjs` CLI](https://www.npmjs.com/package/@pocketjs/cli):
-`npm i -g @pocketjs/cli`, then `pocketjs doctor` checks the bun / Rust / PSP
-toolchain (`pocketjs setup` installs what's missing), `pocketjs create <name>`
-scaffolds an app, and `pocketjs dev|build|psp|hw|psplink` wrap the scripts
+Or drive everything through the [`pocket` CLI](https://www.npmjs.com/package/@pocketjs/cli):
+`npm i -g @pocketjs/cli`, then `pocket doctor` checks the bun / Rust / PSP
+toolchain (`pocket setup` installs what's missing), `pocket create <name>`
+scaffolds an app, and `pocket dev|build|psp|hw|psplink` wrap the scripts
 below.
 
 The build is two-pass: pass 1 babel-transforms every module reachable from the
@@ -117,5 +117,25 @@ bun psplink                           # interactive real PSP switcher over PSPLI
 bun run hw hero --trace              # real PSP via PSPLINK + host0 trace
 bunx tsc --noEmit                     # typecheck (babel owns the JSX transform)
 ```
+
+## DevTools + time travel
+
+Pocket DevTools ([DEVTOOLS.md](DEVTOOLS.md)) is built into every bundle: a
+component tree with semantic names (`debugName` / `<Named>`), hover-to-
+highlight **on the device screen** (real PSP included, over the PSPLINK USB
+cable), pause/step, a REPL, `console.log` from hardware, and an always-on
+input-tape flight recorder — sessions replay byte-exactly because the whole
+runtime is fixed-dt deterministic.
+
+```sh
+bun run devtools                      # panel + hub + USB bridge, one process
+bun run devtools cards                # + build, link and launch cards on a real PSP
+bun run tape replay <app> <tape.json> --png 60   # render any frame headlessly
+bun run tape:check                    # session-golden replay regression
+```
+
+On-demand device screenshots (📷 in the panel) work on every host — on real
+hardware the raw VRAM rides the usbhostfs mount and the bridge encodes the
+PNG desktop-side.
 
 Fonts: Inter (OFL), vendored in `assets/fonts/`.

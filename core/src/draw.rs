@@ -488,6 +488,10 @@ struct Walker<'a> {
     /// Core texture list (baked corner discs append lazily during the walk).
     textures: &'a mut Vec<crate::Texture>,
     discs: &'a mut DiscCache,
+    /// DevTools: slot to capture the world AABB of (u32::MAX = none).
+    inspect_slot: u32,
+    /// World AABB of `inspect_slot`, set when the walk reaches it.
+    inspect_hit: Option<Clip>,
 }
 
 /// Build the full DrawList for the current (laid-out) tree. `frame` is the
@@ -503,11 +507,60 @@ pub fn build(
     textures: &mut Vec<crate::Texture>,
     discs: &mut DiscCache,
     dl: &mut DrawList,
-) {
+    inspect_id: i32,
+    inspect_prev: Option<(f32, f32, f32, f32)>,
+) -> (Option<(f32, f32, f32, f32)>, Option<(f32, f32, f32, f32)>) {
     dl.words.clear();
-    let mut w = Walker { tree, styles, fonts, frame, screen, glyph_scratch: Vec::new(), textures, discs };
+    // DevTools (DEVTOOLS.md): slot of the inspected node, u32::MAX = none.
+    // Nodes inside a perspective subtree take the paint_3d path and are not
+    // captured (only the 2D walk composes a world Affine per node).
+    let inspect_slot = if inspect_id != 0 {
+        tree.resolve(inspect_id).unwrap_or(u32::MAX)
+    } else {
+        u32::MAX
+    };
+    let mut w = Walker {
+        tree,
+        styles,
+        fonts,
+        frame,
+        screen,
+        glyph_scratch: Vec::new(),
+        textures,
+        discs,
+        inspect_slot,
+        inspect_hit: None,
+    };
     let root_slot = crate::tree::split_id(spec::ROOT_ID).1;
     w.paint(root_slot, Affine::IDENTITY, 1.0, Clip::viewport(screen), dl);
+    let target = w.inspect_hit.map(|c| (c.x0, c.y0, c.x1 - c.x0, c.y1 - c.y0));
+    // Highlight glide: the drawn box exponentially approaches the target
+    // (~0.35/draw ≈ converged in 6 draws), so switching the inspected node
+    // slides the box across the screen instead of teleporting it. draw()
+    // runs every vblank even while debug-paused, so the glide stays live in
+    // a frozen world. Purely visual — debugRectXY/WH report the target.
+    let drawn = match (target, inspect_prev) {
+        (Some(t), Some(p)) => {
+            const K: f32 = 0.35;
+            let d = (
+                p.0 + (t.0 - p.0) * K,
+                p.1 + (t.1 - p.1) * K,
+                p.2 + (t.2 - p.2) * K,
+                p.3 + (t.3 - p.3) * K,
+            );
+            let close = (d.0 - t.0).abs() < 0.5
+                && (d.1 - t.1).abs() < 0.5
+                && (d.2 - t.2).abs() < 0.5
+                && (d.3 - t.3).abs() < 0.5;
+            Some(if close { t } else { d })
+        }
+        (Some(t), None) => Some(t), // first appearance: no glide-from-nowhere
+        (None, _) => None,
+    };
+    if let Some((x, y, bw, bh)) = drawn {
+        w.emit_highlight(dl, &Clip { x0: x, y0: y, x1: x + bw, y1: y + bh });
+    }
+    (target, drawn)
 }
 
 impl<'a> Walker<'a> {
@@ -544,6 +597,11 @@ impl<'a> Walker<'a> {
             local = local.then(&m);
         }
         let world = parent_world.then(&local);
+        // DevTools: capture the inspected node's border-box world AABB
+        // (before the opacity cull so transparent nodes still highlight).
+        if slot == self.inspect_slot {
+            self.inspect_hit = Some(self.world_aabb(&world, l.w, l.h));
+        }
         let op = clampf(opacity * r.opacity, 0.0, 1.0);
         if op <= 0.0 {
             return;
@@ -1144,6 +1202,21 @@ impl<'a> Walker<'a> {
                 emit_tri(dl, &clipped[0], &clipped[i], &clipped[i + 1], clip, self.screen);
             }
         }
+    }
+
+    /// DevTools highlight overlay (DEVTOOLS.md): translucent fill + 2 px
+    /// edges over the inspected node's world AABB. Appended after the whole
+    /// walk, so it renders on top and outside any scissor.
+    fn emit_highlight(&self, dl: &mut DrawList, c: &Clip) {
+        let vp = Clip::viewport(self.screen);
+        const FILL: u32 = 0x4DF5B04B; // #4bb0f5 at ~30% alpha (ABGR)
+        const EDGE: u32 = 0xFFF5B04B; // #4bb0f5 solid
+        const T: f32 = 2.0;
+        self.emit_screen_rect(dl, c.x0, c.y0, c.x1, c.y1, Fill::Flat(FILL), &vp);
+        self.emit_screen_rect(dl, c.x0 - T, c.y0 - T, c.x1 + T, c.y0, Fill::Flat(EDGE), &vp);
+        self.emit_screen_rect(dl, c.x0 - T, c.y1, c.x1 + T, c.y1 + T, Fill::Flat(EDGE), &vp);
+        self.emit_screen_rect(dl, c.x0 - T, c.y0, c.x0, c.y1, Fill::Flat(EDGE), &vp);
+        self.emit_screen_rect(dl, c.x1, c.y0, c.x1 + T, c.y1, Fill::Flat(EDGE), &vp);
     }
 
     /// Screen-space flat/grad rect helper (already-transformed coords).

@@ -1676,3 +1676,131 @@ fn arc_primitive_emits_coverage_rects() {
     // The half-ring rasterizes into many small coverage runs (not one box).
     assert!(rects > 20, "expected arc coverage runs, got {rects}");
 }
+
+// ---- DevTools ops (spec ops 18..22, DEVTOOLS.md) ----------------------------
+
+#[test]
+fn debug_pause_freezes_and_step_advances_one_frame() {
+    let mut ui = Ui::new();
+    let mut s = StyleSpec::new();
+    s.base = alloc::vec![
+        (spec::prop::WIDTH, 40f32.to_bits()),
+        (spec::prop::HEIGHT, 40f32.to_bits()),
+    ];
+    assert!(ui.load_styles(&encode_styles(&[s])));
+    let n = ui.create_node(0);
+    ui.insert_before(spec::ROOT_ID, n, 0);
+    ui.set_style(n, 0);
+    ui.tick();
+    // 600 ms linear width anim: ~4.4 px per 1/60 frame — visible per tick.
+    assert!(ui.animate(n, spec::prop::WIDTH, 200.0, 600, spec::Easing::Linear as u8, 0) >= 0);
+    ui.tick();
+    ui.draw();
+    let w1 = ui.layout_of(n).unwrap().2;
+    assert!(w1 > 40.0, "anim should have started, got {w1}");
+
+    ui.debug_pause(true);
+    assert!(ui.debug_paused());
+    for _ in 0..5 {
+        ui.tick();
+    }
+    ui.draw();
+    assert_eq!(ui.layout_of(n).unwrap().2, w1, "paused world must hold");
+
+    ui.debug_step();
+    ui.tick(); // armed: advances exactly one frame
+    ui.tick(); // not armed: no-op again
+    ui.draw();
+    let w2 = ui.layout_of(n).unwrap().2;
+    assert!(w2 > w1, "step must advance one frame");
+
+    ui.debug_pause(false);
+    ui.tick();
+    ui.draw();
+    assert!(ui.layout_of(n).unwrap().2 > w2, "resume must run again");
+}
+
+#[test]
+fn debug_inspect_overlays_and_reports_world_rect() {
+    let mut ui = Ui::new();
+    let mut s = StyleSpec::new();
+    s.base = alloc::vec![
+        (spec::prop::POS_TYPE, spec::PosType::Absolute as u32),
+        (spec::prop::WIDTH, 40f32.to_bits()),
+        (spec::prop::HEIGHT, 40f32.to_bits()),
+        (spec::prop::INSET_L, 10f32.to_bits()),
+        (spec::prop::INSET_T, 10f32.to_bits()),
+        (spec::prop::BG_COLOR, 0xff20_4060u32),
+    ];
+    assert!(ui.load_styles(&encode_styles(&[s])));
+    let n = ui.create_node(0);
+    ui.insert_before(spec::ROOT_ID, n, 0);
+    ui.set_style(n, 0);
+    ui.tick();
+    let baseline = ui.draw().words.len();
+    assert_eq!(ui.debug_rect_xy(), -1, "no inspect target yet");
+
+    ui.debug_inspect(n);
+    assert_eq!(ui.debug_rect_xy(), -1, "rect only captured by draw()");
+    let overlaid = ui.draw().words.len();
+    // Overlay = translucent fill + 4 edge rects = 5 RECT ops = 20 words.
+    assert_eq!(overlaid, baseline + 20, "highlight overlay must be appended");
+    assert_eq!(ui.debug_rect_xy(), 10 | (10 << 16));
+    assert_eq!(ui.debug_rect_wh(), 40 | (40 << 16));
+
+    ui.debug_inspect(0);
+    assert_eq!(ui.draw().words.len(), baseline, "overlay must clear");
+    assert_eq!(ui.debug_rect_xy(), -1);
+    assert_eq!(ui.debug_rect_wh(), -1);
+}
+
+#[test]
+fn debug_inspect_glides_between_targets() {
+    let mut ui = Ui::new();
+    let mk = |x: f32| {
+        let mut s = StyleSpec::new();
+        s.base = alloc::vec![
+            (spec::prop::POS_TYPE, spec::PosType::Absolute as u32),
+            (spec::prop::WIDTH, 40f32.to_bits()),
+            (spec::prop::HEIGHT, 40f32.to_bits()),
+            (spec::prop::INSET_L, x.to_bits()),
+            (spec::prop::INSET_T, 10f32.to_bits()),
+            (spec::prop::BG_COLOR, 0xff20_4060u32),
+        ];
+        s
+    };
+    assert!(ui.load_styles(&encode_styles(&[mk(10.0), mk(200.0)])));
+    let a = ui.create_node(0);
+    let b = ui.create_node(0);
+    ui.insert_before(spec::ROOT_ID, a, 0);
+    ui.insert_before(spec::ROOT_ID, b, 0);
+    ui.set_style(a, 0);
+    ui.set_style(b, 1);
+    ui.tick();
+
+    // Decode the fill rect (first overlay op) X from the appended words.
+    let overlay_x = |ui: &mut Ui, baseline: usize| -> i32 {
+        let words = &ui.draw().words;
+        assert!(words.len() > baseline, "overlay must be present");
+        let xy = words[baseline + 1]; // [RECT, xy, wh, color]
+        ((xy & 0xffff) as u16) as i16 as i32
+    };
+    let baseline = ui.draw().words.len();
+
+    ui.debug_inspect(a);
+    assert_eq!(overlay_x(&mut ui, baseline), 10, "first appearance is instant");
+
+    ui.debug_inspect(b);
+    let x1 = overlay_x(&mut ui, baseline);
+    assert!(x1 > 10 && x1 < 200, "glide starts between the boxes, got {x1}");
+    let x2 = overlay_x(&mut ui, baseline);
+    assert!(x2 > x1, "glide advances every draw, got {x1} -> {x2}");
+    for _ in 0..30 {
+        ui.draw();
+    }
+    assert_eq!(overlay_x(&mut ui, baseline), 200, "glide converges exactly");
+    assert_eq!(ui.debug_rect_xy(), 200 | (10 << 16), "readback is the target, not the animation");
+
+    ui.debug_inspect(0);
+    assert_eq!(ui.draw().words.len(), baseline, "clear hides the overlay");
+}

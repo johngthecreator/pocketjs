@@ -36,6 +36,11 @@ budget, including animated transitions and input feedback.
 
 ```sh
 bun install
+bun pocket check --target psp         # schema + capabilities + ordinary app TypeScript
+bun pocket compile --target psp       # check + emit JS/pak from the resolved plan
+bun pocket build --target psp -- --release
+
+# Low-level compiler commands used by framework demos/tests:
 bun scripts/build.ts hero             # -> dist/hero.js + dist/hero.pak
 bun scripts/build.ts hero-vue-vapor-main --framework=vue-vapor
 ```
@@ -112,12 +117,38 @@ required router package.
 
 ```sh
 bun run test                          # spec contract + tailwind parser tests
+bun pocket check --target psp         # validate pocket.json + resolved target contract
+bun pocket compile --target psp       # typecheck and compile, for custom native hosts
+bun pocket build --target psp         # typecheck, compile, and package the target
 bun scripts/build.ts <app> [--framework=solid|vue-vapor] [--extra-chars=…]
 bun run psp / bun run dev / bun run wasm      # EBOOT / web host / wasm core
 bun psplink                           # interactive real PSP switcher over PSPLINK
 bun run hw hero --trace              # real PSP via PSPLINK + host0 trace
 bunx tsc --noEmit                     # typecheck (babel owns the JSX transform)
 ```
+
+Manifest-driven builds resolve `pocket.json` once into a small
+`ResolvedBuildPlan`. The JS/font/pak compiler and native backend consume that
+same serialized plan; `planHash` is only its build-time checksum. At startup,
+the bundle checks the native host's target and HostOps ABI. The app entry and
+its reachable imports use the app's ordinary TypeScript configuration.
+
+Capabilities are plain framework API identifiers. `requires` must exist on the
+selected host; `enhances` resolves to booleans available from
+`@pocketjs/framework/platform`:
+
+```ts
+import { hasFeature } from "@pocketjs/framework/platform";
+
+// `enhances: ["input.analog.left"]` in pocket.json — buttons-only hosts
+// resolve it to false and the nub branch compiles out of reach.
+if (hasFeature("input.analog.left")) bindNubScrolling();
+```
+
+They describe fixed host API support, not permissions or live device state.
+Custom native hosts should use `extractHostBuildInputs()` and
+`hostBuildEnvironment()` from `@pocketjs/framework/manifest`; the complete
+Plan remains an internal build IR.
 
 ## DevTools + time travel
 

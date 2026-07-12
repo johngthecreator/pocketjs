@@ -556,7 +556,8 @@ pub unsafe fn add_fn(
     JS_SetPropertyStr(ctx, obj, name.as_ptr() as *const _, v);
 }
 
-/// Install `globalThis.ui` (full HostOps surface + `__textures` + `__sprites`).
+/// Install `globalThis.ui` (full HostOps surface + target identity, textures,
+/// and sprites).
 /// `textures` and `sprites` come from pak::feed.
 pub unsafe fn register(
     ctx: *mut JSContext,
@@ -598,6 +599,28 @@ pub unsafe fn register(
     add_fn(ctx, ui_obj, b"__dbgPoll\0", js_dbg_poll, 0);
     add_fn(ctx, ui_obj, b"__dbgSend\0", js_dbg_send, 1);
     add_fn(ctx, ui_obj, b"__dbgShot\0", js_dbg_shot, 0);
+
+    // Framework-owned host identity. JS uses this for target/profile
+    // diagnostics only; native-vs-injected ownership is determined by the
+    // global namespace itself, never by a target-name branch.
+    let target = env!("POCKETJS_TARGET");
+    JS_SetPropertyStr(
+        ctx,
+        ui_obj,
+        b"__host\0".as_ptr() as *const _,
+        JS_NewStringLen(ctx, target.as_ptr(), target.len()),
+    );
+    // build.rs validated this is a positive integer; a parse failure here
+    // would mean the two fell out of sync, so fail loudly rather than ship 0.
+    let host_abi = env!("POCKETJS_HOST_ABI")
+        .parse::<i32>()
+        .expect("POCKETJS_HOST_ABI validated by build.rs");
+    JS_SetPropertyStr(
+        ctx,
+        ui_obj,
+        b"__hostAbi\0".as_ptr() as *const _,
+        JS_NewInt32(ctx, host_abi),
+    );
 
     // ui.__textures: pak image name -> texture handle (see module docs).
     let tex_obj = JS_NewObject(ctx);

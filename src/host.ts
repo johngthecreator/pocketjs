@@ -4,11 +4,10 @@
 // boundary.
 //
 // Two host kinds:
-//   - "psp":      QuickJS on hardware/PPSSPP — the native bin installs a
-//                 `globalThis.ui` namespace (native/src/ffi.rs). Detected
-//                 automatically. NON-strict: unknown classes/textures bump a
-//                 counter instead of throwing (a crash on hardware is worse
-//                 than a missing style).
+//   - "native":   QuickJS on a framework-owned device runtime — the native
+//                 bin installs a `globalThis.ui` namespace. NON-strict:
+//                 unknown classes/textures bump a counter instead of throwing
+//                 (a crash on hardware is worse than a missing style).
 //   - "injected": web/wasm/Bun-test hosts pass their own HostOps object into
 //                 render(). Strict: unknown classes/textures throw loudly.
 
@@ -18,6 +17,16 @@ import {
   VALUE_KIND,
   type PropName,
 } from "../spec/spec.ts";
+
+// Replaced by scripts/build.ts for manifest-driven builds. `typeof` keeps
+// legacy/test bundles valid until they opt into a ResolvedBuildPlan.
+declare const __POCKET_TARGET__: string;
+declare const __POCKET_HOST_ABI__: number;
+
+export interface BuildHostContract {
+  readonly target: string;
+  readonly hostAbi: number;
+}
 
 /** The `ui.*` op surface. Handles are generation-tagged positive i32 ids;
  *  0 means "none" (anchor 0 = append, setFocus 0 = clear). */
@@ -106,42 +115,88 @@ export interface HostOps {
   /** PSP on-demand screenshot: dump the displayed framebuffer to
    *  pocketjs-dbg/shot.raw (bridge converts to PNG). → success. */
   __dbgShot?(): boolean;
-  /** Host self-identification for DevTools' hello (e.g. "desktop"); hosts
-   *  without it are inferred from the boot tables. */
+  /** Framework target/profile identity (for example "psp" or "vita"). */
   __host?: string;
+  /** Version of the JS/native HostOps ABI implemented by this namespace. */
+  __hostAbi?: number;
 }
 
 export interface Host {
   ops: HostOps;
-  kind: "psp" | "injected";
-  /** Strict hosts throw on unknown class/src; PSP counts silently. */
+  /** Transport/ownership, deliberately independent from the target name. */
+  kind: "native" | "injected";
+  /** Target/profile reported by the host; "injected" for test/web adapters. */
+  target: string;
+  /** Strict hosts throw on unknown class/src; native hosts count silently. */
   strict: boolean;
 }
 
 let current: Host | null = null;
 
+export function embeddedBuildHostContract(): BuildHostContract | null {
+  const target = typeof __POCKET_TARGET__ === "string" ? __POCKET_TARGET__ : "";
+  const hostAbi = typeof __POCKET_HOST_ABI__ === "number" ? __POCKET_HOST_ABI__ : 0;
+  return target && hostAbi > 0 ? { target, hostAbi } : null;
+}
+
+/** Fail before mounting when a bundle was packaged with the wrong native host. */
+export function assertNativeHostContract(
+  ops: HostOps,
+  expected: BuildHostContract | null = embeddedBuildHostContract(),
+): void {
+  if (!expected) return;
+  if (typeof ops.__host !== "string") {
+    throw new Error(
+      `PocketJS: this bundle targets "${expected.target}" but the native host predates platform ` +
+        "contracts — add __host/__hostAbi to its ui namespace (see src/host.ts HostOps)",
+    );
+  }
+  if (ops.__host !== expected.target) {
+    throw new Error(
+      `PocketJS: native target mismatch (bundle=${expected.target}, host=${ops.__host})`,
+    );
+  }
+  if (ops.__hostAbi !== expected.hostAbi) {
+    throw new Error(
+      `PocketJS: native host ABI mismatch (bundle=${expected.hostAbi}, host=${ops.__hostAbi ?? "missing"})`,
+    );
+  }
+}
+
 /**
- * Resolve the host: injected ops win; otherwise `globalThis.ui` (PSP/QuickJS).
+ * Resolve the host: injected ops win; otherwise `globalThis.ui` (native
+ * QuickJS).
  * Throws when neither exists — PocketJS cannot run without a native tree.
  *
- * Exception: when the injected ops ARE the PSP native namespace (the demo
- * entries pass `globalThis.ui` explicitly), the host stays kind "psp"/
- * non-strict — `__textures` is set only by native ffi.rs, never by web/wasm/
- * test hosts, so those keep the strict injected contract. This also routes
- * render() into its PSP branch (bind native texture handles, skip the
- * loadStyles/loadFontAtlas re-feed the native pak walker already did).
+ * A namespace is NATIVE when it self-identifies with `__host` (platform
+ * contracts) — or, for hosts built before contracts existed (pocket-shell,
+ * the iOS fork, shipped EBOOTs), when it carries `__textures`, which only
+ * native ffi layers ever set. Those legacy hosts stay native/non-strict with
+ * target "unknown"; a bundle carrying an embedded contract refuses them with
+ * an actionable migration error (assertNativeHostContract). Web/wasm
+ * adapters publish `globalThis.ui` too but set neither marker and stay
+ * strict-injected, exactly as before.
  */
 export function detectHost(injected?: HostOps): Host {
   const native = (globalThis as { ui?: HostOps & { __textures?: unknown } }).ui;
+  const nativeMarked =
+    native !== undefined && (typeof native.__host === "string" || native.__textures !== undefined);
   if (injected) {
-    if (native !== undefined && injected === native && native.__textures !== undefined) {
-      return { ops: injected, kind: "psp", strict: false };
+    if (native !== undefined && injected === native && nativeMarked) {
+      assertNativeHostContract(native);
+      return { ops: injected, kind: "native", target: native.__host ?? "unknown", strict: false };
     }
-    return { ops: injected, kind: "injected", strict: true };
+    return { ops: injected, kind: "injected", target: injected.__host ?? "injected", strict: true };
   }
-  if (native) return { ops: native, kind: "psp", strict: false };
+  if (native !== undefined && nativeMarked) {
+    assertNativeHostContract(native);
+    return { ops: native, kind: "native", target: native.__host ?? "unknown", strict: false };
+  }
+  if (native) {
+    return { ops: native, kind: "injected", target: "injected", strict: true };
+  }
   throw new Error(
-    "PocketJS: no host — pass HostOps to render() (web/test) or run under the PSP runtime (globalThis.ui)",
+    "PocketJS: no host — pass HostOps to render() (web/test) or run under a native runtime (globalThis.ui)",
   );
 }
 

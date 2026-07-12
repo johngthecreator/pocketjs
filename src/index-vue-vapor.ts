@@ -94,7 +94,7 @@ export function render(code: () => unknown, opts: RenderOptions = {}): () => voi
   setStyleResolver(resolveStyle);
   if (opts.styles) registerStyles(opts.styles);
 
-  if (host.kind === "psp") {
+  if (host.kind === "native") {
     const tex = (host.ops as HostOps & { __textures?: Record<string, number> }).__textures;
     if (tex) {
       for (const key in tex) rendererRegisterTexture(key, tex[key]);

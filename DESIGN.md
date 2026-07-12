@@ -102,7 +102,7 @@ PocketJS/
   native/              Rust bin `pocketjs-psp` — the EBOOT (standalone dir, lone bin)
     Cargo.toml         psp {external-c-heap, abort-only, external-global-alloc},
                        libquickjs-sys, pocketjs-core (path)
-    build.rs           embeds $POCKETJS_APP js + app.pak (PSPJS_GAME pattern);
+    build.rs           embeds $POCKETJS_APP_OUTPUT js + app.pak when the stock backend owns packaging;
                        [features] capture = [] for the E2E frame-dump
     targets/mipsel-sony-psp.json  copied from runtime/ (self-contained)
     src/main.rs        boot (2MB USER|VFPU worker), vblank loop, job pump
@@ -190,7 +190,10 @@ PocketJS/
 The PSP build (`scripts/psp.ts`) then runs `rustup run nightly-2026-05-28
 cargo psp` with the exact env block from `runtime/build.ts` (LLVM PATH,
 TARGET_CFLAGS, AR_mipsel_sony_psp=llvm-ar, RUST_PSP_TARGET, RUST_PSP_ABORT_ONLY,
-RUSTFLAGS `-A linker-messages …`), `POCKETJS_APP=<app>` consumed by `build.rs`.
+RUSTFLAGS `-A linker-messages …`), `POCKETJS_APP_OUTPUT=<app>` and
+`POCKETJS_EMBED_APP=1` consumed by the stock runtime `build.rs`.
+`POCKETJS_OUTPUT_DIR` carries the CLI artifact directory without putting a
+machine-local path into the hashed build plan.
 
 ## The native contract (`ui.*`)
 

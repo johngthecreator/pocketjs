@@ -28,6 +28,8 @@
       "@pocketjs/framework/components": ["./src/components.ts"],
       "@pocketjs/framework/input": ["./src/input-api.ts"],
       "@pocketjs/framework/lifecycle": ["./src/lifecycle.ts"],
+      "@pocketjs/framework/manifest": ["./src/manifest/index.ts"],
+      "@pocketjs/framework/platform": ["./src/platform.ts"],
       "@pocketjs/framework/prelude": ["./src/prelude.ts"],
       "@pocketjs/framework/renderer": ["./src/renderer.ts"],
       "@pocketjs/framework/solid": ["./src/index.ts"],

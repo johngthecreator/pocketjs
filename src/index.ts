@@ -116,7 +116,7 @@ function createLayer(style: Record<string, number>): NodeMirror {
  * Mount the app into the native root node and wire the frame loop. Returns a
  * disposer that unmounts and destroys the app subtree.
  *
- * On PSP the native bin has already fed styles/atlases to the core from the
+ * On native hosts the device bin has already fed styles/atlases to the core from the
  * pak (zero QuickJS transit); on injected hosts (web/test) render() pushes
  * them through ops.loadStyles/loadFontAtlas here.
  */
@@ -127,8 +127,8 @@ export function render(code: () => unknown, opts: RenderOptions = {}): () => voi
   setStyleResolver(resolveStyle);
   if (opts.styles) registerStyles(opts.styles);
 
-  if (host.kind === "psp") {
-    // PSP native host: native/src/pak.rs already fed styles/atlases to the
+  if (host.kind === "native") {
+    // Native host: its pak loader already fed styles/atlases to the
     // core and uploaded the pack's images at boot, leaving a name -> texture-
     // handle table on the ui namespace (ffi.rs). Bind it so <image src="name">
     // resolves through the renderer's texture registry.

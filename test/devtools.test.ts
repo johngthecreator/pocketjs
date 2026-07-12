@@ -45,6 +45,7 @@ function makeDevHost(): DevMock {
     };
   const mock: DevMock = {
     kind: "injected",
+    target: "test",
     strict: true,
     calls,
     rectXY: -1,

@@ -21,3 +21,5 @@ mipsel-sony-psp/
 test/goldens/*.actual.png
 # golden-mismatch dumps written by test/e2e-ppsspp.ts
 test/goldens-psp/*.actual.png
+# demos
+demos/

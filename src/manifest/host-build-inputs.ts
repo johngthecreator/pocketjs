@@ -8,6 +8,7 @@ import { verifyPlanHash, type ResolvedBuildPlan } from "./plan.ts";
 /** Stable subset of the internal build plan consumed by custom native hosts. */
 export interface HostBuildInputs {
   readonly appOutput: string;
+  readonly appId: string;
   readonly target: string;
   readonly hostAbi: number;
   readonly viewport: {
@@ -91,6 +92,7 @@ export function extractHostBuildInputs(
   }
   return {
     appOutput: plan.app.output,
+    appId: plan.app.id,
     target: plan.target.id,
     hostAbi: plan.target.hostAbi,
     viewport: {
@@ -109,6 +111,7 @@ export function hostBuildEnvironment(
 ): Readonly<Record<string, string>> {
   return {
     POCKETJS_APP_OUTPUT: inputs.appOutput,
+    POCKETJS_APP_ID: inputs.appId,
     POCKETJS_EMBED_APP: options.embedApp ? "1" : "0",
     POCKETJS_OUTPUT_DIR: options.outputDirectory,
     POCKETJS_TARGET: inputs.target,

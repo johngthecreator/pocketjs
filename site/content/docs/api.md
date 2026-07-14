@@ -19,6 +19,7 @@ here. For conceptual walkthroughs see [Components](/docs/components/),
 | `@pocketjs/framework/platform` | `platform`, `hasFeature` |
 | `@pocketjs/framework/clock` | `simulationHz`, `ticksPerFrame`, `virtualFrame`, `virtualNow`, `after` |
 | `@pocketjs/framework/effects` | `installEffectDriver`, `runEffect`, effect types |
+| `@pocketjs/framework/storage` | `storage` |
 | `@pocketjs/framework/hot` | `text`, `prop` |
 | `@pocketjs/framework/manifest` | schema/manifest types, validator, `extractHostBuildInputs`, `hostBuildEnvironment`, `vitaTitleId` |
 
@@ -676,6 +677,30 @@ time, but PocketJS delivers the result only at the next frame boundary. This
 callback surface deliberately avoids promise/microtask timing in deterministic
 journeys. A host-injected `globalThis.__pocketEffectDriver` overrides the app
 driver for replay and simulation.
+
+## `@pocketjs/framework/storage`
+
+```ts
+const storage: {
+  readonly length: number;
+  key(index: number): string | null;
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+  removeItem(key: string): void;
+  clear(): void;
+  flush(): boolean;
+};
+```
+
+Portable string key/value storage currently implemented by the PSP host.
+Mutations are buffered in
+memory; call `flush()` at an intentional save point to commit them. Each app
+gets a 64 KiB namespace keyed by its manifest id. Require `storage.kv` in a
+PSP manifest. The host bridge and document format are designed for future web
+and Vita backends, but those targets do not provide this capability yet.
+Run `bun run e2e:storage` to exercise save, cold-restart load, corrupt-primary
+recovery, and stale-temp handling in PPSSPPHeadless or PPSSPPSDL. Set
+`PPSSPP_MEMSTICK` when the emulator uses a non-default Memory Stick directory.
 
 ## `@pocketjs/framework/hot`
 

@@ -474,6 +474,53 @@ extern "C" {
     fn JS_NewStringLen(ctx: *mut JSContext, str1: *const u8, len1: usize) -> JSValue;
 }
 
+unsafe extern "C" fn js_storage_load(
+    ctx: *mut JSContext,
+    _this: JSValue,
+    _argc: i32,
+    _argv: *mut JSValue,
+) -> JSValue {
+    match crate::storage::load() {
+        Some(snapshot) => JS_NewStringLen(ctx, snapshot.as_ptr(), snapshot.len()),
+        None => JS_UNDEFINED,
+    }
+}
+
+unsafe extern "C" fn js_storage_commit(
+    ctx: *mut JSContext,
+    _this: JSValue,
+    argc: i32,
+    argv: *mut JSValue,
+) -> JSValue {
+    if argc < 1 {
+        return JS_NewBool(ctx, false);
+    }
+    let mut len: size_t = 0;
+    let raw = JS_ToCStringLen2(ctx, &mut len, *argv, 0);
+    if raw.is_null() {
+        return JS_NewBool(ctx, false);
+    }
+    let snapshot = core::slice::from_raw_parts(raw as *const u8, len);
+    let preserve_backup = arg_i32(ctx, argc, argv, 1) != 0;
+    let ok = core::str::from_utf8(snapshot)
+        .map(|value| crate::storage::commit(value, preserve_backup))
+        .unwrap_or(false);
+    JS_FreeCString(ctx, raw);
+    JS_NewBool(ctx, ok)
+}
+
+unsafe extern "C" fn js_storage_load_backup(
+    ctx: *mut JSContext,
+    _this: JSValue,
+    _argc: i32,
+    _argv: *mut JSValue,
+) -> JSValue {
+    match crate::storage::load_backup() {
+        Some(snapshot) => JS_NewStringLen(ctx, snapshot.as_ptr(), snapshot.len()),
+        None => JS_UNDEFINED,
+    }
+}
+
 unsafe extern "C" fn js_debug_inspect(
     ctx: *mut JSContext,
     _this: JSValue,
@@ -698,4 +745,15 @@ pub unsafe fn register(
 
     // JS_SetPropertyStr consumes ownership of ui_obj.
     JS_SetPropertyStr(ctx, global, b"ui\0".as_ptr() as *const _, ui_obj);
+
+    let storage = JS_NewObject(ctx);
+    add_fn(ctx, storage, b"load\0", js_storage_load, 0);
+    add_fn(ctx, storage, b"loadBackup\0", js_storage_load_backup, 0);
+    add_fn(ctx, storage, b"commit\0", js_storage_commit, 2);
+    JS_SetPropertyStr(
+        ctx,
+        global,
+        b"__pocketStorage\0".as_ptr() as *const _,
+        storage,
+    );
 }

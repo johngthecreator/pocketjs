@@ -32,6 +32,7 @@
       "@pocketjs/framework/platform": ["./src/platform.ts"],
       "@pocketjs/framework/prelude": ["./src/prelude.ts"],
       "@pocketjs/framework/renderer": ["./src/renderer.ts"],
+      "@pocketjs/framework/storage": ["./src/storage.ts"],
       "@pocketjs/framework/solid": ["./src/index.ts"],
       "@pocketjs/framework/solid/components": ["./src/components.ts"],
       "@pocketjs/framework/solid/lifecycle": ["./src/lifecycle.ts"],

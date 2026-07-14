@@ -26,7 +26,7 @@ use psp::sys::DisplaySetBufSync;
 use psp::sys::DisplayPixelFormat;
 use psp::sys::{self, CtrlMode, GuContextType, GuSyncBehavior, GuSyncMode, IoOpenFlags, SceCtrlData};
 
-use pocketjs_psp::{dbg, ffi, ge, host, pak};
+use pocketjs_psp::{dbg, ffi, ge, host, pak, storage};
 #[cfg(feature = "bench")]
 use pocketjs_psp::arena;
 
@@ -398,6 +398,7 @@ unsafe fn run() {
     trace("run: JS_NewContext ok");
     let global = JS_GetGlobalObject(ctx);
     trace("run: global object ok");
+    storage::init(env!("POCKETJS_APP_ID"));
 
     // DevTools mailbox (DEVTOOLS.md): active only if pocketjs-dbg/enable
     // exists on host0: (PSPLINK) or ms0: (PPSSPP GUI) — else two failed

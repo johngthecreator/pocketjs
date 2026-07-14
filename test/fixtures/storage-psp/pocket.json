@@ -1,0 +1,26 @@
+{
+  "$schema": "https://pocketjs.dev/schema/pocket-2.json",
+  "pocket": 2,
+  "id": "dev.pocket-stack.e2e.psp.storage",
+  "name": "pocketjs-storage-e2e",
+  "title": "PocketJS Storage E2E",
+  "version": "0.4.0",
+  "engine": {
+    "capabilities": {
+      "requires": [
+        "storage.kv",
+        "text.glyphs.baked",
+        "input.buttons"
+      ]
+    }
+  },
+  "app": {
+    "entry": "main.tsx",
+    "output": "storage-e2e",
+    "framework": "solid",
+    "viewport": {
+      "logical": [480, 272],
+      "presentation": "integer-fit"
+    }
+  }
+}

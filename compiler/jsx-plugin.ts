@@ -41,6 +41,7 @@ const LIFECYCLE_PATH = new URL("../src/lifecycle.ts", import.meta.url).pathname;
 const LIFECYCLE_VUE_VAPOR_PATH = new URL("../src/lifecycle-vue-vapor.ts", import.meta.url).pathname;
 const PLATFORM_PATH = new URL("../src/platform.ts", import.meta.url).pathname;
 const PRELUDE_PATH = new URL("../src/prelude.ts", import.meta.url).pathname;
+const STORAGE_PATH = new URL("../src/storage.ts", import.meta.url).pathname;
 const VUE_VAPOR_RUNTIME_PATH = new URL(
   "../node_modules/vue/dist/vue.runtime-with-vapor.esm-browser.prod.js",
   import.meta.url,
@@ -78,6 +79,7 @@ export const FRAMEWORKS: Record<
       platform: PLATFORM_PATH,
       prelude: PRELUDE_PATH,
       renderer: RENDERER_SOLID_PATH,
+      storage: STORAGE_PATH,
     },
   },
   "vue-vapor": {
@@ -95,6 +97,7 @@ export const FRAMEWORKS: Record<
       platform: PLATFORM_PATH,
       prelude: PRELUDE_PATH,
       renderer: RENDERER_VUE_VAPOR_PATH,
+      storage: STORAGE_PATH,
     },
   },
 };

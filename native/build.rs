@@ -37,7 +37,8 @@ fn main() {
         "POCKETJS_EMBED_APP=1 requires POCKETJS_APP_OUTPUT"
     );
     let target = env::var("POCKETJS_TARGET").unwrap_or_else(|_| "psp".into());
-    let host_abi = env::var("POCKETJS_HOST_ABI").unwrap_or_else(|_| "1".into());
+    let host_abi = env::var("POCKETJS_HOST_ABI").unwrap_or_else(|_| "2".into());
+    let app_id = env::var("POCKETJS_APP_ID").unwrap_or_else(|_| app.clone());
     // Fail HERE, not at boot: a garbage value would otherwise parse to 0 in
     // ffi.rs and brick every manifest bundle with an ABI-mismatch at mount.
     assert!(
@@ -118,6 +119,7 @@ fn main() {
     println!("cargo:rustc-env=POCKETJS_APP={app}");
     println!("cargo:rustc-env=POCKETJS_TARGET={target}");
     println!("cargo:rustc-env=POCKETJS_HOST_ABI={host_abi}");
+    println!("cargo:rustc-env=POCKETJS_APP_ID={app_id}");
     println!("cargo:rustc-env=POCKETJS_CAPTURE_INPUT={capture_input}");
     println!("cargo:rustc-env=POCKETJS_TRACE={trace}");
     println!("cargo:rustc-env=POCKETJS_CAP_START={cap_start}");
@@ -130,6 +132,7 @@ fn main() {
     println!("cargo:rerun-if-env-changed=POCKETJS_OUTPUT_DIR");
     println!("cargo:rerun-if-env-changed=POCKETJS_TARGET");
     println!("cargo:rerun-if-env-changed=POCKETJS_HOST_ABI");
+    println!("cargo:rerun-if-env-changed=POCKETJS_APP_ID");
     println!("cargo:rerun-if-env-changed=POCKETJS_LOGICAL_WIDTH");
     println!("cargo:rerun-if-env-changed=POCKETJS_LOGICAL_HEIGHT");
     println!("cargo:rerun-if-env-changed=POCKETJS_PHYSICAL_WIDTH");

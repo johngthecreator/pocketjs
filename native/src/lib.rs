@@ -29,3 +29,4 @@ pub mod ge;
 pub mod host;
 pub mod pak;
 pub mod qjs_alloc;
+pub mod storage;

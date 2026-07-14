@@ -51,6 +51,7 @@ export function defineTargetRegistry<
 export type TargetId<T extends TargetRegistry> = Extract<keyof T, string>;
 
 export const POCKET_CAPABILITIES = defineCapabilityRegistry([
+  "storage.kv",
   "input.analog.left",
   "input.buttons",
   // Framework-synthesized pointer for targets without a native one: the
@@ -71,7 +72,7 @@ export const POCKET_TARGETS = defineTargetRegistry<PocketCapabilityId, {
   readonly vita: TargetProfile<PocketCapabilityId>;
 }>({
   psp: {
-    hostAbi: 1,
+    hostAbi: 2,
     display: {
       physicalViewport: [480, 272],
       logicalViewports: [[480, 272]],
@@ -81,6 +82,7 @@ export const POCKET_TARGETS = defineTargetRegistry<PocketCapabilityId, {
       rasterDensity: 1,
     },
     capabilities: [
+      "storage.kv",
       "input.analog.left",
       "input.buttons",
       "input.cursor",

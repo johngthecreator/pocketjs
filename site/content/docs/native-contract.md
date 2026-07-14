@@ -57,6 +57,23 @@ Node ids are generation-tagged positive `i32` values and reserve `0` for
 
 For the meaning of `PROP` ids, `ENUMS`, and how a `class` string becomes a `styleId`, see [Styling](/docs/styling/) and the [API reference](/docs/api/). For `animate`/`easing` semantics see [Animation](/docs/animation/).
 
+### Persistent storage extension
+
+Persistent storage is deliberately separate from the rendering `HostOps`
+table. A supporting host installs `globalThis.__pocketStorage` before app
+evaluation with synchronous `load()`, optional `loadBackup()`, and
+`commit(snapshot, preserveBackup)` functions. The framework owns the
+versioned/checksummed string document, its 64 KiB quota, and the in-memory
+cache; the host owns app isolation and durable replacement.
+
+The stock PSP host implements this extension under its manifest application
+id and advertises `storage.kv`. Web and Vita do not advertise it yet. A future
+backend can implement the same private bridge without changing app imports or
+the public `@pocketjs/framework/storage` API. PSP custom hosts that reuse
+`ffi::register` must call `storage::init(app_id)` first; the PSP ABI bump makes
+older hosts fail their bundle handshake instead of silently exposing a broken
+store.
+
 ### Prop value encoding
 
 `setProp` and `animate` carry every value as one number (`f64` on the wire). `src/host.ts` encodes the JS value per the prop's kind (`PROP_VALUE_KIND` in the spec):

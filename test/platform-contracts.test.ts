@@ -125,6 +125,7 @@ describe("platform registry", () => {
     expect(Object.keys(POCKET_TARGETS)).toEqual(["psp", "vita"]);
     expect(validatePlatformContractRegistry(POCKET_PLATFORM_CONTRACTS)).toEqual([]);
     expect(POCKET_TARGETS.psp.capabilities).toEqual([
+      "storage.kv",
       "input.analog.left",
       "input.buttons",
       "input.cursor",
@@ -163,11 +164,25 @@ describe("platform registry", () => {
 });
 
 describe("semantic resolution", () => {
+  test("accepts storage for PSP but rejects it for Vita until its backend exists", () => {
+    const input = structuredClone(portableInput) as Record<string, any>;
+    input.engine.capabilities.requires.push("storage.kv");
+    expect(validateAndResolveBuildPlan(input, { target: "psp" }).ok).toBe(true);
+    const vita = validateAndResolveBuildPlan(input, { target: "vita" });
+    expect(vita.ok).toBe(false);
+    if (vita.ok) return;
+    expect(vita.diagnostics).toContainEqual({
+      code: "capability.unavailable",
+      path: "/engine/capabilities/requires/3",
+      message: "target vita does not provide storage.kv",
+    });
+  });
+
   test("resolves a small PSP build plan", () => {
     const result = validateAndResolveBuildPlan(portableInput, { target: "psp" });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.plan.target).toEqual({ id: "psp", hostAbi: 1 });
+    expect(result.plan.target).toEqual({ id: "psp", hostAbi: 2 });
     expect(result.plan.app).toEqual({
       id: "dev.pocket-stack.telemetry",
       title: "Pocket Telemetry",
